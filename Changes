@@ -73,6 +73,10 @@ OCaml 4.12.0 (24 February 2021)
   (Nicolás Ojeda Bär, review by Gabriel Scherer, Florian Angeletti and
    Leo White)
 
+- #10072, #10085: Check that sizes and offsets in stack frame descriptors
+  do not overflow the 16-bit fields where they are stored.
+  (Xavier Leroy, report by Github user pveber, review by Gabriel Scherer)
+
 - #8939: Command-line option to save Linear IR before emit.
   (Greta Yorsh, review by Mark Shinwell, Sébastien Hinderer and Frédéric Bour)
 

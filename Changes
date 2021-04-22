@@ -10,6 +10,9 @@ OCaml 4.12, maintenance version
 - #10349: Fix destroyed_at_c_call on RISC-V
   (Mark Shinwell, review by Nicolás Ojeda Bär)
 
+- #8936: Per-function environment for Emit
+  (Greta Yorsh, review by Vincent Laviron and Florian Angeletti)
+
 - #10294, #10295: fix an assert-failure in pattern-matching compilation
   (Gabriel Scherer, review by Thomas Refis and Luc Maranget,
    report by Nicolás Ojeda Bär)

@@ -7,6 +7,9 @@ OCaml 4.12, maintenance version
   platforms without AFL support.
   (David Allsopp, review by Xavier Leroy)
 
+- #9562, #367: Allow CSE of immutable loads across stores
+  (Stephen Dolan, review by Mark Shinwell)
+
 - #10349: Fix destroyed_at_c_call on RISC-V
   (Mark Shinwell, review by Nicolás Ojeda Bär)
 

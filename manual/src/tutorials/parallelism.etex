@@ -18,8 +18,8 @@ concurrent tasks may or may not overlap in time. Tasks may execute concurrently
 by yielding control to each other. While concurrency is a program structuring
 mechanism, parallelism is a mechanism to make your programs run faster. If you
 are interested in the concurrent programming mechanisms in OCaml, please refer
-to the section \ref{s:effect-handlers} on effect handlers and the chapter
-\ref{c:threads} on the threads library.
+to section~\ref{s:effect-handlers} on effect handlers and
+chapter~\ref{c:threads} on the threads library.
 
 \section{s:par_domains}{Domains}
 
@@ -39,7 +39,7 @@ thread. Each domain also has its own runtime state, which includes domain-local
 structures for allocating memory. Hence, they are relatively expensive to
 create and tear down.
 
-\emph{\textbf{It is recommended that the programs do not spawn more domains
+\emph{\textbf{It is recommended that programs do not spawn more domains
 than cores available}}.
 
 In this tutorial, we shall be implementing, running and measuring the

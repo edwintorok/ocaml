@@ -16,6 +16,12 @@ OCaml 4.14 maintenance version
 - #11332, #12702: make sure `Bool_val(v)` has type `bool` in C++
   (Xavier Leroy, report by ygrek, review by Gabriel Scherer)
 
+### Standard library:
+
+- #11878, #11965: Prevent seek_in from marking buffer data as valid after
+  closing the channel. This could lead to inputting uninitialized bytes.
+  (Samuel Hym, review by Xavier Leroy and Olivier Nicole)
+
 ### Build system:
 
 - #11590: Allow installing to a destination path containing spaces.

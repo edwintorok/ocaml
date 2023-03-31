@@ -69,13 +69,14 @@ module Doc = struct
   type t = {
     since: Version.t option;
     deprecated: bool;
+    unstable: bool;
     loc: Location.t;
     has_doc_parent: bool;
     has_doc: bool;
   }
 
   let empty = {since = None; deprecated=false; loc=Location.none;
-               has_doc_parent=false;has_doc=false}
+               has_doc_parent=false;has_doc=false; unstable=false}
 
   (* only match @since that contains version number and nothing else,
      @since can also be used for semantic changes with a comment
@@ -85,6 +86,15 @@ module Doc = struct
   let find_attr lst attrs =
     try Some (List.find (fun attr -> List.mem attr.attr_name.txt lst) attrs)
     with Not_found -> None
+
+  let get_alert attrs = match find_attr ["alert"] attrs with
+    | Some { attr_payload = PStr [{pstr_desc = Pstr_eval(
+      {pexp_desc = Pexp_apply ({pexp_desc = Pexp_ident {txt = Lident id; _}; _}
+      , _); _}, _); _}]} ->
+        Some id
+    | _ -> None
+
+  let is_unstable attrs = get_alert attrs = Some "unstable"
 
   let get_doc_raw lst attrs = match find_attr lst attrs with
     | Some { attr_payload = PStr [{pstr_desc=Pstr_eval(
@@ -116,6 +126,7 @@ module Doc = struct
               else parent_info.since
           | None -> parent_info.since);
       deprecated = parent_info.deprecated || is_deprecated attrs;
+      unstable = parent_info.unstable || is_unstable attrs;
       loc;
       has_doc_parent = parent_info.has_doc_parent || parent_info.has_doc;
       has_doc = doc <> None
@@ -198,11 +209,6 @@ module Ast = struct
         | {psig_desc=Psig_attribute a;_}
           when (Doc.get_doc ["ocaml.doc";"ocaml.text"] [a] <> None) ->
             f inherits (Location.none) [a]
-        | {psig_desc=Psig_attribute a; _} ->
-            Format.eprintf "%a\n"
-              (Format.pp_print_option Format.pp_print_string)
-              (Doc.get_doc ["alert"] [a]);
-            inherits
         | _ -> inherits
       ) inherits items in
     items |> List.to_seq
@@ -335,6 +341,8 @@ module Diff = struct
     | None, None -> assert false
     | _, Some {has_doc_parent=false;has_doc=false;deprecated=false;_} ->
         None (* undocumented *)
+    | _, Some {unstable=true; _} ->
+        None (* unstable == undocumented *)
     | Some {deprecated=true;_}, None -> None (* deleted deprecated *)
     | Some _, None ->
         Some (default, "deleted non-deprecated", seen, latest)

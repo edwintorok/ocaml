@@ -240,6 +240,7 @@ type ('a, 'b, 'c, 'd) scanner =
 
 type ('a, 'b, 'c, 'd) scanner_opt =
      ('a, Scanning.in_channel, 'b, 'c, 'a -> 'd option, 'd) format6 -> 'c
+(** @since 5.00 *)
 
 exception Scan_failure of string
 (** When the input can not be read according to the format string

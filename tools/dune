@@ -24,9 +24,8 @@
  (modules cvt_emit)
  (mode    fallback))
 
-(copy_files# ../otherlibs/str/str.ml)
 (executable
  (name lintapidiff)
- (modules lintapidiff str)
- (libraries ocamlcommon ocamlbytecomp)
+ (modules lintapidiff)
+ (libraries ocamlcommon ocamlbytecomp str runtime)
 )

@@ -198,6 +198,11 @@ module Ast = struct
         | {psig_desc=Psig_attribute a;_}
           when (Doc.get_doc ["ocaml.doc";"ocaml.text"] [a] <> None) ->
             f inherits (Location.none) [a]
+        | {psig_desc=Psig_attribute a; _} ->
+            Format.eprintf "%a\n"
+              (Format.pp_print_option Format.pp_print_string)
+              (Doc.get_doc ["alert"] [a]);
+            inherits
         | _ -> inherits
       ) inherits items in
     items |> List.to_seq

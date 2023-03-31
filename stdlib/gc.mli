@@ -527,3 +527,4 @@ module Memprof :
         Calling [stop] when a callback is running can lead to
         callbacks not being called even though some events happened. *)
 end
+[@@alert unstable "The Memprof module is EXPERIMENTAL. It may change without prior notice."]

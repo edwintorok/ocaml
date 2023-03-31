@@ -498,10 +498,9 @@ val hash : t -> int
     to the functor {!Hashtbl.Make}. *)
 
 module Array : sig
-  (** @since 4.12 *)
-
   type t = floatarray
   (** The type of float arrays with packed representation.
+      @since 4.08
     *)
 
   val length : t -> int
@@ -833,10 +832,9 @@ end
 (** Float arrays with packed representation. *)
 
 module ArrayLabels : sig
-  (** @since 4.12 *)
-
   type t = floatarray
   (** The type of float arrays with packed representation.
+      @since 4.08
     *)
 
   val length : t -> int

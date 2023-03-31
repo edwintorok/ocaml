@@ -27,5 +27,6 @@
 (executable
  (name lintapidiff)
  (modules lintapidiff)
+ (ocamlopt_flags (:standard -nostdlib))
  (libraries ocamlcommon ocamlbytecomp str runtime)
 )

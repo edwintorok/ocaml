@@ -13,7 +13,7 @@
 ;**************************************************************************
 
 (rule
- (targets primitives prims.c libcamlrun.a)
+ (targets primitives prims.o libcamlrun.a libasmrun.a)
  (mode    fallback)
  (deps
    ../Makefile.config
@@ -36,6 +36,7 @@
    skiplist.c codefrag.c
    platform.c fiber.c sync.c prng.c sak.c addrmap.c gc_stats.c lf_skiplist.c roots.c shared_heap.c
    sync_posix.h
+   backtrace_nat.c clambda_checks.c dynlink_nat.c fail_nat.c frame_descriptors.c startup_nat.c signals_nat.c
  )
  (action (chdir ../
    (progn
@@ -54,9 +55,12 @@
 
 (rule
   (targets libruntime_stubs.a)
+  (deps libcamlrun.a prims.o)
   (action (progn 
-            (copy libcamlrun.a %{targets})
-            (ar )
+            (copy libcamlrun.a libcamlrun_.a)
+            (run chmod +w libcamlrun_.a)
+            (run ar r libcamlrun_.a prims.o)
+            (copy libcamlrun_.a %{targets})
            )
           )
   )

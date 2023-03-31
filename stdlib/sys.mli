@@ -194,7 +194,8 @@ val max_array_length : int
 val max_floatarray_length : int
 (** Maximum length of a floatarray. This is also the maximum length of
     a [float array] when OCaml is configured with
-    [--enable-flat-float-array]. *)
+    [--enable-flat-float-array].
+    @since 4.08 *)
 
 external runtime_variant : unit -> string = "caml_runtime_variant"
 (** Return the name of the runtime variant the program is running on.
@@ -356,8 +357,8 @@ val development_version : bool
     @since 4.14
 *)
 
-type extra_prefix = Plus | Tilde
 (** @since 4.14 *)
+type extra_prefix = Plus | Tilde
 
 type extra_info = extra_prefix * string
 (** @since 4.14 *)

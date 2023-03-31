@@ -23,3 +23,9 @@
 (ocamllex
  (modules cvt_emit)
  (mode    fallback))
+
+(executable
+ (name lintapidiff)
+ (modules lintapidiff)
+ (libraries ocamlcommon ocamlbytecomp compiler-libs str)
+)

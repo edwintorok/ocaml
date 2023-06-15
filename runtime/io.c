@@ -193,7 +193,9 @@ CAMLexport int caml_flush_partial(struct channel *channel)
   if (towrite > 0) {
     written = caml_write_fd(channel->fd, channel->flags,
                             channel->buff, towrite);
-    if (written == Io_interrupted) goto again;
+    if (written == -1) {
+      if (errno == EINTR) goto again; else caml_sys_io_error(NO_ARG);
+    }
     channel->offset += written;
     if (written < towrite)
       memmove(channel->buff, channel->buff + written, towrite - written);
@@ -287,7 +289,7 @@ int caml_do_read(int fd, char *p, unsigned int n)
   int r;
   do {
     r = caml_read_fd(fd, 0, p, n);
-  } while (r == Io_interrupted);
+  } while (r == -1 && errno == EINTR);
   return r;
 }
 
@@ -298,8 +300,11 @@ CAMLexport unsigned char caml_refill(struct channel *channel)
   check_pending(channel);
   n = caml_read_fd(channel->fd, channel->flags,
                    channel->buff, channel->end - channel->buff);
-  if (n == Io_interrupted) goto again;
-  else if (n == 0) caml_raise_end_of_file();
+  if (n == -1) {
+    if (errno == EINTR) goto again; else caml_sys_io_error(NO_ARG);
+  } else if (n == 0) {
+    caml_raise_end_of_file();
+  }
   channel->offset += n;
   channel->max = channel->buff + n;
   channel->curr = channel->buff + 1;
@@ -348,7 +353,9 @@ CAMLexport int caml_getblock(struct channel *channel, char *p, intnat len)
   } else {
     nread = caml_read_fd(channel->fd, channel->flags, channel->buff,
                          channel->end - channel->buff);
-    if (nread == Io_interrupted) goto again;
+    if (nread == -1) {
+      if (errno == EINTR) goto again; else caml_sys_io_error(NO_ARG);
+    }
     channel->offset += nread;
     channel->max = channel->buff + nread;
     if (n > nread) n = nread;
@@ -423,7 +430,9 @@ intnat caml_input_scan_line(struct channel *channel)
       /* Fill the buffer as much as possible */
       n = caml_read_fd(channel->fd, channel->flags,
                        channel->max, channel->end - channel->max);
-      if (n == Io_interrupted) goto again;
+      if (n == -1) {
+        if (errno == EINTR) goto again; else caml_sys_io_error(NO_ARG);
+      }
       else if (n == 0) {
         /* End-of-file encountered. Return the number of characters in the
            buffer, with negative sign since we haven't encountered
@@ -829,7 +838,9 @@ CAMLprim value caml_ml_input(value vchannel, value buff, value vstart,
   } else {
     nread = caml_read_fd(channel->fd, channel->flags, channel->buff,
                          channel->end - channel->buff);
-    if (nread == Io_interrupted) goto again;
+    if (nread == -1) {
+      if (errno == EINTR) goto again; else caml_sys_io_error(NO_ARG);
+    }
     channel->offset += nread;
     channel->max = channel->buff + nread;
     if (n > nread) n = nread;

@@ -899,6 +899,10 @@ let fundecl fundecl =
 
 (* Emission of data *)
 
+let data_name = function
+  |  Csymbol_address s -> Some s
+  | _ -> None
+
 let emit_item = function
   | Cglobal_symbol s -> D.global (emit_symbol s)
   | Cdefine_symbol s -> add_def_symbol s; _label (emit_symbol s)
@@ -914,7 +918,14 @@ let emit_item = function
   | Calign n -> D.align n
 
 let data l =
-  D.data ();
+  let () = match List.find_map data_name l with
+  | Some s ->
+	D.section [".data.caml." ^ (emit_symbol s)]
+	(Some "aw")
+	[]
+  | None ->
+	  D.data ()
+  in
   D.align 8;
   List.iter emit_item l
 

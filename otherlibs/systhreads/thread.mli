@@ -111,10 +111,10 @@ val wait_timed_write : Unix.file_descr -> float -> bool
    The same functionality can be achieved with {!Unix.select}.
 *)
 
-val select :
+external select :
   Unix.file_descr list -> Unix.file_descr list ->
   Unix.file_descr list -> float ->
-    Unix.file_descr list * Unix.file_descr list * Unix.file_descr list
+        Unix.file_descr list * Unix.file_descr list * Unix.file_descr list = "unix_select"
 (** Same function as {!Unix.select}.
    Suspend the execution of the calling thread until input/output
    becomes possible on the given Unix file descriptors.

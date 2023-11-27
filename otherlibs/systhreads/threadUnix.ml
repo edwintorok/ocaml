@@ -29,7 +29,10 @@ let system = Unix.system
 let read = Unix.read
 let write = Unix.write
 let write_substring = Unix.write_substring
-let select = Unix.select
+external select :
+  Unix.file_descr list -> Unix.file_descr list ->
+  Unix.file_descr list -> float ->
+        Unix.file_descr list * Unix.file_descr list * Unix.file_descr list = "unix_select"
 
 let timed_read fd buff ofs len timeout =
   if Thread.wait_timed_read fd timeout

@@ -112,7 +112,10 @@ let wait_timed_read fd d =
   match Unix.select [fd] [] [] d with ([], _, _) -> false | (_, _, _) -> true
 let wait_timed_write fd d =
   match Unix.select [] [fd] [] d with (_, [], _) -> false | (_, _, _) -> true
-let select = Unix.select
+external select :
+  Unix.file_descr list -> Unix.file_descr list ->
+  Unix.file_descr list -> float ->
+        Unix.file_descr list * Unix.file_descr list * Unix.file_descr list = "unix_select"
 
 let wait_pid p = Unix.waitpid [] p
 

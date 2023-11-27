@@ -59,10 +59,10 @@ val timed_write_substring :
 
 (** {1 Polling} *)
 
-val select :
+external select :
   Unix.file_descr list -> Unix.file_descr list ->
   Unix.file_descr list -> float ->
-        Unix.file_descr list * Unix.file_descr list * Unix.file_descr list
+        Unix.file_descr list * Unix.file_descr list * Unix.file_descr list = "unix_select"
 
 (** {1 Pipes and redirections} *)
 

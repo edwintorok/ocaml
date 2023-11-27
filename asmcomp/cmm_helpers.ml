@@ -2621,7 +2621,7 @@ let global_table namelist =
 
 let reference_symbols namelist =
   let mksym name = Csymbol_address name in
-  Cdata(List.map mksym namelist)
+  Cdata(Csubsection "dynlink" :: List.map mksym namelist)
 
 let global_data name v =
   Cdata(emit_string_constant (name, Global)

@@ -228,6 +228,13 @@ let make_globals_map units_list ~crc_interfaces =
       (name, intf, None, []) :: acc)
     crc_interfaces defined
 
+let force_linking_of_dynlink ~ppf_dump =
+    let keep = "_caml_dynlink_keep" in
+    Asmgen.compile_phrase ~ppf_dump
+      (Cmm.Cdata ([Cmm.Csubsection "dynlink"; Cmm.Cdefine_symbol keep]));
+    Asmgen.compile_phrase ~ppf_dump
+      (Cmm.Cdata ([Cmm.Csymbol_address keep]))
+
 let make_startup_file ~ppf_dump units_list ~crc_interfaces =
   let compile_phrase p = Asmgen.compile_phrase ~ppf_dump p in
   Location.input_name := "caml_startup"; (* set name of "current" input *)
@@ -255,6 +262,8 @@ let make_startup_file ~ppf_dump units_list ~crc_interfaces =
   compile_phrase (Cmm_helpers.frame_table all_names);
   if !Clflags.output_complete_object then
     force_linking_of_startup ~ppf_dump;
+  if !Clflags.dlcode then
+    force_linking_of_dynlink ~ppf_dump;
   Emit.end_assembly ()
 
 let make_shared_startup_file ~ppf_dump units =
@@ -270,6 +279,8 @@ let make_shared_startup_file ~ppf_dump units =
        (List.map (fun (ui,_) -> ui.ui_symbol) units));
   if !Clflags.output_complete_object then
     force_linking_of_startup ~ppf_dump;
+  if !Clflags.dlcode then
+    force_linking_of_dynlink ~ppf_dump;
   (* this is to force a reference to all units, otherwise the linker
      might drop some of them (in case of libraries) *)
   Emit.end_assembly ()

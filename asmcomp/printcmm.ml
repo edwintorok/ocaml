@@ -297,6 +297,7 @@ let data_item ppf = function
   | Cstring s -> fprintf ppf "string \"%s\"" s
   | Cskip n -> fprintf ppf "skip %i" n
   | Calign n -> fprintf ppf "align %i" n
+  | Csubsection s -> fprintf ppf "subsection %s" s
 
 let data ppf dl =
   let items ppf = List.iter (fun d -> fprintf ppf "@ %a" data_item d) dl in

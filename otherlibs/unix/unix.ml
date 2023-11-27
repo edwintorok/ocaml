@@ -399,9 +399,6 @@ external symlink : ?to_dir:bool -> string -> string -> unit = "unix_symlink"
 external has_symlink : unit -> bool = "unix_has_symlink"
 external readlink : string -> string = "unix_readlink"
 external mkfifo : string -> file_perm -> unit = "unix_mkfifo"
-external select :
-  file_descr list -> file_descr list -> file_descr list -> float ->
-        file_descr list * file_descr list * file_descr list = "unix_select"
 
 type lock_command =
     F_ULOCK

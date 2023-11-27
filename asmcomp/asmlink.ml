@@ -455,6 +455,9 @@ let link ~backend ~ppf_dump objfiles output_name =
     Clflags.ccobjs := !Clflags.ccobjs @ !lib_ccobjs;
     Clflags.all_ccopts := !lib_ccopts @ !Clflags.all_ccopts;
                                                  (* put user's opts first *)
+    if not !Clflags.dlcode && Config.function_sections then
+      (* override the earlier -Wl,-E, but allow the user to reenable *)
+      Clflags.all_ccopts := ["-Wl,--no-export-dynamic"] @ !Clflags.all_ccopts;
     let removed_objects, object_files, make_startup =
       if !Clflags.whole_program_rebuild && Config.flambda then (
         link_whole_program ~backend ~ppf_dump ~crc_interfaces units_tolink)

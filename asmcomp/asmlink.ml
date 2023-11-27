@@ -356,7 +356,8 @@ let link ~ppf_dump objfiles output_name =
                                                  (* put user's opts first *)
     if not !Clflags.dlcode && Config.function_sections then
       (* override the earlier -Wl,-E, but allow the user to reenable *)
-      Clflags.all_ccopts := ["-Wl,--no-export-dynamic"] @ !Clflags.all_ccopts;
+      Clflags.all_ccopts :=
+        ["-Wl,--no-export-dynamic"; "-Wl,--gc-sections"] @ !Clflags.all_ccopts;
     let startup =
       if !Clflags.keep_startup_file || !Emitaux.binary_backend_available
       then output_name ^ ".startup" ^ ext_asm

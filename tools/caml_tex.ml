@@ -118,12 +118,13 @@ module Toplevel = struct
     let b = Bytes.create size in
     let buffer = Buffer.create 100 in
     let rec read_toplevel_stdout () =
-      match Unix.select[stdout_out][][] 0. with
-      | [_a], _, _ ->
+      (*match Unix.select[stdout_out][][] 0. with
+      | [_a], _, _ ->*)
           let n = Unix.read stdout_out b 0 size in
           Buffer.add_subbytes buffer b 0 n;
           if n = size then read_toplevel_stdout ()
-      | _  -> ()
+      (*
+      | _  -> ()*)
     in
     fun () ->
       let () = flush stdout; read_toplevel_stdout () in

@@ -737,6 +737,8 @@ let emit_item = function
   | Calign n ->
       if n < 8 then `	.align	8\n`
                else `	.align	{emit_int n}\n`
+  | Csubsection s ->
+      `	.section	.data.caml.{emit_symbol s},\"awM\",@progbits,8\n`
 
 let data l =
   emit_string data_space;

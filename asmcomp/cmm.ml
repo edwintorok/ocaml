@@ -196,6 +196,7 @@ type data_item =
   | Cstring of string
   | Cskip of int
   | Calign of int
+  | Csubsection of string
 
 type phrase =
     Cfunction of fundecl

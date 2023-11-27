@@ -1013,6 +1013,8 @@ let emit_item = function
   | Cstring s -> emit_string_directive "	.ascii  " s
   | Cskip n -> if n > 0 then `	.space	{emit_int n}\n`
   | Calign n -> `	.align	{emit_int(Misc.log2 n)}\n`
+  | Csubsection s ->
+      `	.section	.data.caml.{emit_symbol s},\"awM\",@progbits,8\n`
 
 let data l =
   `	.data\n`;

@@ -97,19 +97,6 @@ val wait_write : Unix.file_descr -> unit
 (** This function does nothing in the current implementation of the threading
     library and can be removed from all user programs. *)
 
-val wait_timed_read : Unix.file_descr -> float -> bool
-(** See {!Thread.wait_timed_write}.*)
-
-val wait_timed_write : Unix.file_descr -> float -> bool
-(** Suspend the execution of the calling thread until at least
-   one character or EOF is available for reading ([wait_timed_read]) or
-   one character can be written without blocking ([wait_timed_write])
-   on the given Unix file descriptor. Wait for at most
-   the amount of time given as second argument (in seconds).
-   Return [true] if the file descriptor is ready for input/output
-   and [false] if the timeout expired.
-   The same functionality can be achieved with {!Unix.select}.
-*)
 
 external select :
   Unix.file_descr list -> Unix.file_descr list ->

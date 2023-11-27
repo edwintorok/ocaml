@@ -40,23 +40,6 @@ val write_substring : Unix.file_descr -> string -> int -> int -> int
 
 (** {1 Input/output with timeout} *)
 
-val timed_read :
-      Unix.file_descr ->
-      bytes -> int -> int -> float -> int
-(** See {!ThreadUnix.timed_write}. *)
-
-val timed_write :
-      Unix.file_descr ->
-      bytes -> int -> int -> float -> int
-(** Behave as {!ThreadUnix.read} and {!ThreadUnix.write}, except that
-   [Unix_error(ETIMEDOUT,_,_)] is raised if no data is
-   available for reading or ready for writing after [d] seconds.
-   The delay [d] is given in the fifth argument, in seconds. *)
-
-val timed_write_substring :
-      Unix.file_descr -> string -> int -> int -> float -> int
-(** See {!ThreadUnix.timed_write}. *)
-
 (** {1 Polling} *)
 
 external select :

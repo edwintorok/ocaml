@@ -34,18 +34,6 @@ external select :
   Unix.file_descr list -> float ->
         Unix.file_descr list * Unix.file_descr list * Unix.file_descr list = "unix_select"
 
-let timed_read fd buff ofs len timeout =
-  if Thread.wait_timed_read fd timeout
-  then Unix.read fd buff ofs len
-  else raise (Unix_error(ETIMEDOUT, "timed_read", ""))
-
-let timed_write fd buff ofs len timeout =
-  if Thread.wait_timed_write fd timeout
-  then Unix.write fd buff ofs len
-  else raise (Unix_error(ETIMEDOUT, "timed_write", ""))
-
-let timed_write_substring fd buff ofs len timeout =
-  timed_write fd (Bytes.unsafe_of_string buff) ofs len timeout
 
 let pipe = Unix.pipe
 

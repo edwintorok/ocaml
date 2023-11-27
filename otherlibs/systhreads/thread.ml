@@ -108,10 +108,6 @@ let delay = Unix.sleepf
 let wait_read fd = ()
 let wait_write fd = ()
 
-let wait_timed_read fd d =
-  match Unix.select [fd] [] [] d with ([], _, _) -> false | (_, _, _) -> true
-let wait_timed_write fd d =
-  match Unix.select [] [fd] [] d with (_, [], _) -> false | (_, _, _) -> true
 external select :
   Unix.file_descr list -> Unix.file_descr list ->
   Unix.file_descr list -> float ->

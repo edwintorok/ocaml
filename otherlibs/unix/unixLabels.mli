@@ -1039,9 +1039,9 @@ val readlink : string -> string
 (** {1 Polling} *)
 
 
-val select :
-  read:file_descr list -> write:file_descr list -> except:file_descr list ->
-    timeout:float -> file_descr list * file_descr list * file_descr list
+external select :
+  file_descr list -> file_descr list -> file_descr list -> float ->
+        file_descr list * file_descr list * file_descr list = "unix_select"
 (** Wait until some input/output operations become possible on
    some channels. The three list arguments are, respectively, a set
    of descriptors to check for reading (first argument), for writing

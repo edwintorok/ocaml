@@ -98,10 +98,6 @@ val wait_write : Unix.file_descr -> unit
     library and can be removed from all user programs. *)
 
 
-external select :
-  Unix.file_descr list -> Unix.file_descr list ->
-  Unix.file_descr list -> float ->
-        Unix.file_descr list * Unix.file_descr list * Unix.file_descr list = "unix_select"
 (** Same function as {!Unix.select}.
    Suspend the execution of the calling thread until input/output
    becomes possible on the given Unix file descriptors.

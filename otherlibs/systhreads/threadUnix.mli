@@ -42,10 +42,6 @@ val write_substring : Unix.file_descr -> string -> int -> int -> int
 
 (** {1 Polling} *)
 
-external select :
-  Unix.file_descr list -> Unix.file_descr list ->
-  Unix.file_descr list -> float ->
-        Unix.file_descr list * Unix.file_descr list * Unix.file_descr list = "unix_select"
 
 (** {1 Pipes and redirections} *)
 

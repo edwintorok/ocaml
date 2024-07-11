@@ -80,12 +80,12 @@ unreachable"
 sanitizers="-fsanitize=address -fsanitize=$ubsan -fsanitize-trap=$ubsan"
 
 # Don't optimize too much to get better backtraces of errors
-opt_stacktrace="-O1 -fno-optimize-sibling-calls"
+opt_stacktrace="-Og -fno-optimize-sibling-calls"
 
 ./configure \
   CC=clang \
   CFLAGS="$opt_stacktrace -fno-omit-frame-pointer $sanitizers" \
-  LDFLAGS="$sanitizers" \
+  LDFLAGS="$sanitizers -Og" \
   --disable-stdlib-manpages --enable-dependency-generation
 
 # Build the system.  We want to check for memory leaks, hence

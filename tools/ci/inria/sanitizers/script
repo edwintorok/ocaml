@@ -25,7 +25,7 @@ export OCAMLTEST_SKIP_TESTS="tests/afl-instrumentation/afltest.ml \
 tests/afl-instrumentation/afl-fuzz-test.ml \
 tests/runtime-errors/stackoverflow.ml"
 
-jobs=-j8
+jobs=-j32
 make=make
 
 #########################################################################
@@ -77,10 +77,10 @@ shift-exponent,\
 unreachable"
 
 # Select address sanitizer and UB sanitizer, with trap-on-error behavior
-sanitizers="-fsanitize=address -fsanitize-trap=$ubsan"
+sanitizers="-fsanitize=address -fsanitize=$ubsan -fsanitize-trap=$ubsan"
 
 # Don't optimize too much to get better backtraces of errors
-opt_stacktrace="-Og -fno-optimize-sibling-calls"
+opt_stacktrace="-O1 -fno-optimize-sibling-calls"
 
 ./configure \
   CC=clang \

@@ -80,11 +80,15 @@ unreachable"
 sanitizers="-fsanitize=address -fsanitize=$ubsan -fsanitize-trap=$ubsan"
 
 # Don't optimize too much to get better backtraces of errors
+CFLAGS="-O1 -fno-omit-frame-pointer $sanitizers"
+LDFLAGS="$sanitizers -O1"
+CC=clang-14
+
 
 ./configure \
-  CC=clang-14 \
-  CFLAGS="-O1 -fno-omit-frame-pointer $sanitizers" \
-  LDFLAGS="$sanitizers -O1" \
+  CC="$CC" \
+  CFLAGS="$CFLAGS" \
+  LDFLAGS="$LDFLAGS" \
   --disable-stdlib-manpages --enable-dependency-generation
 
 # Build the system.  We want to check for memory leaks, hence
@@ -120,7 +124,7 @@ echo "======== clang 14, thread sanitizer =========="
 git clean -q -f -d -x
 
 ./configure \
-  CC=clang-14 \
+  CC="$CC" \
   --enable-tsan \
   CPPFLAGS="-DTSAN_INSTRUMENT_ALL" \
   --disable-stdlib-manpages --enable-dependency-generation
@@ -149,7 +153,7 @@ TSAN_OPTIONS="" $run_testsuite
 # # Don't optimize at all to get better backtraces of errors
 
 # ./configure \
-#   CC=clang-9 \
+#   CC="$CC" \
 #   CFLAGS="-O0 -g -fno-omit-frame-pointer -fsanitize=memory" \
 #   LDFLAGS="-fsanitize=memory" \
 #   --disable-native-compiler

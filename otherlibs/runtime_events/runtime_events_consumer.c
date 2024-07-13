@@ -227,6 +227,10 @@ caml_runtime_events_create_cursor(const char_os* runtime_events_path, int pid,
   }
 #endif
 
+  if (cursor->metadata->max_domains > cursor->ring_file_size_bytes) {
+    return E_CORRUPT_STREAM;
+  }
+
   cursor->current_positions =
       caml_stat_alloc(cursor->metadata->max_domains * sizeof(uint64_t));
 
@@ -358,6 +362,17 @@ void caml_runtime_events_free_cursor(struct caml_runtime_events_cursor *cursor){
   }
 }
 
+static runtime_events_error offset_is_ok(const struct caml_runtime_events_cursor *cursor,
+                      uint64_t offset, uint64_t len)
+{
+  const struct runtime_events_metadata_header *h = cursor->metadata;
+  const size_t size = cursor->ring_file_size_bytes;
+
+  return offset <= h->ring_size_bytes && len <= size
+         && h->max_domains * len <= size
+         && offset + h->max_domains * len <= size ? E_SUCCESS : E_CORRUPT_STREAM;
+}
+
 runtime_events_error
 caml_runtime_events_read_poll(struct caml_runtime_events_cursor *cursor,
                          void *callback_data, uintnat max_events,
@@ -377,6 +392,15 @@ caml_runtime_events_read_poll(struct caml_runtime_events_cursor *cursor,
   if (cursor->cursor_in_poll
     || !atomic_compare_exchange_strong(&cursor->cursor_in_poll, &in_poll, 1) ) {
     return E_CURSOR_POLL_BUSY;
+  }
+
+  if (offset_is_ok(cursor, cursor->metadata->headers_offset,
+                 cursor->metadata->ring_header_size_bytes) != E_SUCCESS
+      || offset_is_ok(cursor, cursor->metadata->data_offset,
+                    cursor->metadata->ring_size_bytes) != E_SUCCESS
+    ) {
+    atomic_store(&cursor->cursor_in_poll, 0);
+    return E_CORRUPT_STREAM;
   }
 
   /* this loop looks a bit odd because we're iterating from the last domain
@@ -421,6 +445,8 @@ caml_runtime_events_read_poll(struct caml_runtime_events_cursor *cursor,
       }
 
       ring_mask = cursor->metadata->ring_size_elements - 1;
+      fprintf(stderr,"p:%ld\n", cursor->current_positions[domain_num]);
+      fprintf(stderr,"p0:%ld\n", ring_ptr[0]);
       header = ring_ptr[cursor->current_positions[domain_num] & ring_mask];
       msg_length = RUNTIME_EVENTS_ITEM_LENGTH(header);
 

@@ -29,5 +29,6 @@
       Runtime_events.free_cursor cursor;
       let ring_file =
           Filename.concat parent_cwd (string_of_int child_pid ^ ".events") in
-      Unix.unlink ring_file
+        ()
+      (*Unix.unlink ring_file*)
     end

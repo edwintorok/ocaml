@@ -424,7 +424,7 @@ caml_runtime_events_read_poll(struct caml_runtime_events_cursor *cursor,
       header = ring_ptr[cursor->current_positions[domain_num] & ring_mask];
       msg_length = RUNTIME_EVENTS_ITEM_LENGTH(header);
 
-      if (msg_length > RUNTIME_EVENTS_MAX_MSG_LENGTH) {
+      if (msg_length > RUNTIME_EVENTS_MAX_MSG_LENGTH || msg_length < 2) {
         atomic_store(&cursor->cursor_in_poll, 0);
         return E_CORRUPT_STREAM;
       }

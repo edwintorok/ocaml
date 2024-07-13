@@ -475,6 +475,10 @@ caml_runtime_events_read_poll(struct caml_runtime_events_cursor *cursor,
           break;
         case EV_COUNTER:
           if (cursor->runtime_counter) {
+            if (msg_length < 3) {
+              atomic_store(&cursor->cursor_in_poll, 0);
+              return E_CORRUPT_STREAM;
+            }
             if( !cursor->runtime_counter(domain_num, callback_data, buf[1],
                                         RUNTIME_EVENTS_ITEM_ID(header), buf[2]
                                         ) ) {
@@ -485,6 +489,10 @@ caml_runtime_events_read_poll(struct caml_runtime_events_cursor *cursor,
           break;
         case EV_ALLOC:
           if (cursor->alloc) {
+            if (msg_length < 3) {
+              atomic_store(&cursor->cursor_in_poll, 0);
+              return E_CORRUPT_STREAM;
+            }
             if( !cursor->alloc(domain_num, callback_data, buf[1], &buf[2])) {
               early_exit = 1;
               continue;
@@ -540,6 +548,10 @@ caml_runtime_events_read_poll(struct caml_runtime_events_cursor *cursor,
             }
             break;
           case EV_USER_MSG_TYPE_INT:
+            if (msg_length < 3) {
+              atomic_store(&cursor->cursor_in_poll, 0);
+              return E_CORRUPT_STREAM;
+            }
             if (cursor->user_int) {
               if( !cursor->user_int(domain_num, callback_data, buf[1],
                                       event_id, event_name, buf[2]) ) {
@@ -549,6 +561,10 @@ caml_runtime_events_read_poll(struct caml_runtime_events_cursor *cursor,
             }
             break;
           default: // custom
+            if (msg_length < 3) {
+              atomic_store(&cursor->cursor_in_poll, 0);
+              return E_CORRUPT_STREAM;
+            }
             if (cursor->user_custom) {
               if( !cursor->user_custom(domain_num, callback_data, buf[1],
                                       event_id, event_name,

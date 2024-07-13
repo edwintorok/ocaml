@@ -445,8 +445,6 @@ caml_runtime_events_read_poll(struct caml_runtime_events_cursor *cursor,
       }
 
       ring_mask = cursor->metadata->ring_size_elements - 1;
-      fprintf(stderr,"p:%ld\n", cursor->current_positions[domain_num]);
-      fprintf(stderr,"p0:%ld\n", ring_ptr[0]);
       header = ring_ptr[cursor->current_positions[domain_num] & ring_mask];
       msg_length = RUNTIME_EVENTS_ITEM_LENGTH(header);
 

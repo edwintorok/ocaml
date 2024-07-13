@@ -399,6 +399,7 @@ caml_runtime_events_read_poll(struct caml_runtime_events_cursor *cursor,
       || offset_is_ok(cursor, cursor->metadata->data_offset,
                     cursor->metadata->ring_size_bytes) != E_SUCCESS
       || cursor->metadata->custom_events_offset > cursor->ring_file_size_bytes
+      || cursor->metadata->ring_size_elements * sizeof(uint64_t) != cursor->metadata->ring_size_bytes
     ) {
     atomic_store(&cursor->cursor_in_poll, 0);
     return E_CORRUPT_STREAM;

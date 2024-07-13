@@ -398,6 +398,7 @@ caml_runtime_events_read_poll(struct caml_runtime_events_cursor *cursor,
                  cursor->metadata->ring_header_size_bytes) != E_SUCCESS
       || offset_is_ok(cursor, cursor->metadata->data_offset,
                     cursor->metadata->ring_size_bytes) != E_SUCCESS
+      || cursor->metadata->custom_events_offset > cursor->ring_file_size_bytes
     ) {
     atomic_store(&cursor->cursor_in_poll, 0);
     return E_CORRUPT_STREAM;
@@ -536,6 +537,12 @@ caml_runtime_events_read_poll(struct caml_runtime_events_cursor *cursor,
       } else {
         // User events
         uintnat event_id = RUNTIME_EVENTS_ITEM_ID(header);
+
+        if (cursor->metadata->custom_events_offset + event_id * sizeof(struct runtime_events_custom_event)
+            > cursor->ring_file_size_bytes) {
+          atomic_store(&cursor->cursor_in_poll, 0);
+          return E_CORRUPT_STREAM;         
+        }
 
         struct runtime_events_custom_event *custom_event =
           &((struct runtime_events_custom_event *)

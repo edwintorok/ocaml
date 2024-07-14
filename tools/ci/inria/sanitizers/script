@@ -81,14 +81,54 @@ shift-exponent,\
 unreachable"
 
 # Select address sanitizer and UB sanitizer, with trap-on-error behavior
-sanitizers="-fsanitize=address -fsanitize-trap=$ubsan"
-
+sanitizers="-fsanitize=address -fsanitize=$ubsan -fno-sanitize-recover=all"
+export UBSAN_OPTIONS="print_stacktrace=1"
 # Don't optimize too much to get better backtraces of errors
+CFLAGS="-O1 -g -fno-omit-frame-pointer $sanitizers"
+LDFLAGS="$sanitizers -O1"
+CC=$clang
+
+# Test that UBSAN works
+cat >ubsan.c <<EOF
+#include <stdbool.h>
+#include <string.h>
+
+int main(int argc, char **argv) {
+  int x = 100;
+  bool b;
+  memcpy(&b, &x, sizeof(b));
+
+  return b;
+}
+EOF
+
+$CC $CFLAGS -c ubsan.c
+$CC $LDFLAGS ubsan.o -o ubsan
+
+./ubsan && exit 2
+test $? -eq 1
+
+# Test that ASAN works
+cat >asan.c <<EOF
+#include <stdlib.h>
+
+int main(int argc, char **argv) {
+  char* x = malloc(4);
+  free(x);
+  free(x);
+  return x[argc];
+}
+EOF
+
+$CC $CFLAGS -c asan.c
+$CC $LDFLAGS asan.o -o asan
+./asan && exit 2
+test $? -eq 1
 
 ./configure \
-  CC=$clang \
-  CFLAGS="-O1 -fno-omit-frame-pointer $sanitizers" \
-  LDFLAGS="$sanitizers" \
+  CC="$CC" \
+  CFLAGS="$CFLAGS" \
+  LDFLAGS="$LDFLAGS" \
   --disable-stdlib-manpages --enable-dependency-generation
 
 # Build the system.  We want to check for memory leaks, hence
@@ -124,7 +164,7 @@ echo "======== clang ${llvm_version}, thread sanitizer ========"
 git clean -q -f -d -x
 
 ./configure \
-  CC=$clang \
+  CC="$CC" \
   --enable-tsan \
   CPPFLAGS="-DTSAN_INSTRUMENT_ALL" \
   --disable-stdlib-manpages --enable-dependency-generation
@@ -170,10 +210,10 @@ TSAN_OPTIONS="" $run_testsuite
 # test $? -eq 1
 
 # ./configure \
-#   CC=$clang \
-#   CFLAGS="${CFLAGS}"
-#   LDFLAGS="${LDFLAGS}" \
-#   --disable-native-compiler --without-zstd
+#   CC="$CC" \
+#   CFLAGS="-O0 -g -fno-omit-frame-pointer -fsanitize=memory" \
+#   LDFLAGS="-fsanitize=memory" \
+#   --disable-native-compiler
 # # A tool that makes error backtraces nicer
 # # Need to pick the one that matches clang-6.0
 # export MSAN_SYMBOLIZER_PATH=/usr/lib/llvm-6.0/bin/llvm-symbolizer

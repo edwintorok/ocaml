@@ -32,11 +32,29 @@ echo "======== clang ${llvm_version}, memory sanitizer ========"
 # # Select memory sanitizer
 # # Don't optimize at all to get better backtraces of errors
 
+CFLAGS="-O0 -g -fno-omit-frame-pointer -fsanitize=memory"
+LDFLAGS="-fsanitize=memory"
+
+# Test that MSAN works
+cat >msan.c <<EOF
+#include <stdlib.h>
+int main(int argc, char **argv) {
+  char* x = malloc(4);
+  return x[0];
+}
+EOF
+
+$CC $CFLAGS -c msan.c
+$CC $LDFLAGS msan.o -o msan
+./msan && exit 2
+test $? -eq 1
+rm -f msan msan.c msan.o
+
 ./configure \
-   CC="$CC" \
-   CFLAGS="-O0 -g -fno-omit-frame-pointer -fsanitize=memory" \
-   LDFLAGS="-fsanitize=memory" \
-   --disable-native-compiler --without-zstd
+  CC="$CC" \
+  CFLAGS="${CFLAGS}" \
+  LDFLAGS="${LDFLAGS}" \
+  --disable-native-compiler --without-zstd
 # # A tool that makes error backtraces nicer
 # # Need to pick the one that matches clang-6.0
 # export MSAN_SYMBOLIZER_PATH=/usr/lib/llvm-6.0/bin/llvm-symbolizer

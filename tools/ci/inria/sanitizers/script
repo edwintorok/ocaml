@@ -36,4 +36,6 @@ git clean -q -f -d -x
 "${DIR}/test-tsan.sh"
 
 git clean -q -f -d -x
-"${DIR}/test-msan.sh"
+
+# Disabled for now, see comments inside
+# "${DIR}/test-msan.sh"

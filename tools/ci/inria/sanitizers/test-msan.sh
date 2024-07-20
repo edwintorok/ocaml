@@ -32,7 +32,7 @@ echo "======== clang ${llvm_version}, memory sanitizer ========"
 # # Select memory sanitizer
 # # Don't optimize at all to get better backtraces of errors
 
-CFLAGS="-O0 -g -fno-omit-frame-pointer -fsanitize=memory -fsanitize-memory-track-origins"
+CFLAGS="-Og -g -fno-omit-frame-pointer -fsanitize=memory -fsanitize-memory-track-origins"
 LDFLAGS="-fsanitize=memory"
 
 # Test that MSAN works

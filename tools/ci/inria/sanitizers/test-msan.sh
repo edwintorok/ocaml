@@ -55,9 +55,6 @@ rm -f msan msan.c msan.o
   CFLAGS="${CFLAGS}" \
   LDFLAGS="${LDFLAGS}" \
   --disable-native-compiler --without-zstd
-# # A tool that makes error backtraces nicer
-# # Need to pick the one that matches clang-6.0
-# export MSAN_SYMBOLIZER_PATH=/usr/lib/llvm-6.0/bin/llvm-symbolizer
 
 # Build the system (bytecode only) and test
 make $jobs

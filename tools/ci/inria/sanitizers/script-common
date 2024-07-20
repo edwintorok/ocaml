@@ -64,6 +64,7 @@ if [ ! -f "${ASAN_SYMBOLIZER_PATH}" ]; then
 fi
 
 export TSAN_SYMBOLIZER_PATH="$ASAN_SYMBOLIZER_PATH"
+export MSAN_SYMBOLIZER_PATH="$ASAN_SYMBOLIZER_PATH"
 
 # Don't optimize too much to get better backtraces of errors
 CFLAGS="-Og -g -fno-omit-frame-pointer $sanitizers"

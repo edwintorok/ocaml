@@ -57,6 +57,12 @@ llvm_bin_dir=/usr/lib/llvm-${llvm_version}/bin
 # "llvm-symbolizer" (/usr/bin/llvm-symbolizer-xx doesn't work,
 # that would be too easy)
 export ASAN_SYMBOLIZER_PATH=${llvm_bin_dir}/llvm-symbolizer
+
+if [ ! -f "${ASAN_SYMBOLIZER_PATH}" ]; then
+  # E.g. on Fedora40
+  export ASAN_SYMBOLIZER_PATH=/usr/bin/llvm-symbolizer
+fi
+
 export TSAN_SYMBOLIZER_PATH="$ASAN_SYMBOLIZER_PATH"
 
 # Don't optimize too much to get better backtraces of errors

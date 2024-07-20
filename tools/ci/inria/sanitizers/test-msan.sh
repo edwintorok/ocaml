@@ -38,7 +38,7 @@
 #   CC="$CC" \
 #   CFLAGS="-O0 -g -fno-omit-frame-pointer -fsanitize=memory" \
 #   LDFLAGS="-fsanitize=memory" \
-#   --disable-native-compiler
+#   --disable-native-compiler --without-zstd
 # # A tool that makes error backtraces nicer
 # # Need to pick the one that matches clang-6.0
 # export MSAN_SYMBOLIZER_PATH=/usr/lib/llvm-6.0/bin/llvm-symbolizer

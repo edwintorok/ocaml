@@ -14,26 +14,24 @@
 #*                                                                        *
 #**************************************************************************
 
-# This script is run on Inria's continuous-integration servers to recompile
-# from scratch, adding more run-time checks ("sanitizers") to the C code,
-# and run the test suite.
+. $(dirname "$0")/script-common
 
-DIR=$(dirname "$0")
+#########################################################################
 
-# Run various sanitizer configurations.
-# We cannot enable all sanitizers in a single configuration:
-# some sanitizers are mutually exclusive.
+# Run the testsuite with ThreadSanitizer support (--enable-tsan) enabled.
+# Initially intended to detect data races in OCaml programs and C stubs, it has
+# proved effective at also detecting races in the runtime (see #11040).
 
-# This is the CI script, clean the build tree before each sanitizer.
-# Don't clean the tree in the individual scripts, because those
-# scripts may be used by developers, and we don't want to wipe uncommitted
-# changes.
+echo "======== clang ${llvm_version}, thread sanitizer ========"
 
-git clean -q -f -d -x
-"${DIR}/test-aubsan.sh"
+./configure \
+  CC="$CC" \
+  --enable-tsan \
+  CPPFLAGS="-DTSAN_INSTRUMENT_ALL" \
+  --disable-stdlib-manpages --enable-dependency-generation
 
-git clean -q -f -d -x
-"${DIR}/test-tsan.sh"
+# Build the system
+make $jobs
 
-git clean -q -f -d -x
-"${DIR}/test-msan.sh"
+# Run the testsuite.
+TSAN_OPTIONS="" $run_testsuite

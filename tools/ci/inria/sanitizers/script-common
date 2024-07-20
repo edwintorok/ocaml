@@ -1,0 +1,65 @@
+#!/bin/sh
+#**************************************************************************
+#*                                                                        *
+#*                                 OCaml                                  *
+#*                                                                        *
+#*      Damien Doligez, Xavier Leroy, projet Gallium, INRIA Paris         *
+#*                                                                        *
+#*   Copyright 2018 Institut National de Recherche en Informatique et     *
+#*     en Automatique.                                                    *
+#*                                                                        *
+#*   All rights reserved.  This file is distributed under the terms of    *
+#*   the GNU Lesser General Public License version 2.1, with the          *
+#*   special exception on linking described in the file LICENSE.          *
+#*                                                                        *
+#**************************************************************************
+
+# This script is run on Inria's continuous-integration servers to recompile
+# from scratch, adding more run-time checks ("sanitizers") to the C code,
+# and run the test suite.
+
+# In this context, it is necessary to skip a few tests whose behaviour
+# is modified by the instrumentation:
+
+export OCAMLTEST_SKIP_TESTS="tests/afl-instrumentation/afltest.ml \
+tests/afl-instrumentation/afl-fuzz-test.ml \
+tests/runtime-errors/stackoverflow.ml"
+
+jobs=-j8
+make=make
+
+#########################################################################
+
+# Print each command before its execution
+set -x
+
+# stop on error
+set -e
+
+# Tell gcc to use only ASCII in its diagnostic outputs.
+export LC_ALL=C
+
+# How to run the test suite
+if test -n "$jobs" && test -x /usr/bin/parallel; then
+  export PARALLEL="$jobs $PARALLEL"
+  run_testsuite="$make -C testsuite parallel"
+else
+  run_testsuite="$make -C testsuite all"
+fi
+
+# Figure out which version of llvm/clang to use
+llvm_version=$(clang -dumpversion | cut -d . -f 1)
+clang=clang-${llvm_version}
+llvm_bin_dir=/usr/lib/llvm-${llvm_version}/bin
+
+# A tool that makes error backtraces nicer
+# Need to pick the one that matches clang's version and is named
+# "llvm-symbolizer" (/usr/bin/llvm-symbolizer-xx doesn't work,
+# that would be too easy)
+export ASAN_SYMBOLIZER_PATH=${llvm_bin_dir}/llvm-symbolizer
+export TSAN_SYMBOLIZER_PATH="$ASAN_SYMBOLIZER_PATH"
+
+# Don't optimize too much to get better backtraces of errors
+CFLAGS="-Og -g -fno-omit-frame-pointer $sanitizers"
+LDFLAGS="$sanitizers -Og -g"
+CC=$clang

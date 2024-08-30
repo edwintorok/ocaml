@@ -370,6 +370,7 @@ static void runtime_events_create_from_stw_single(void) {
 
       ring_buffer->ring_head = 0;
       ring_buffer->ring_tail = 0;
+      ring_buffer->ring_wraps = 0;
     }
 
     // at the same instant: snapshot user_events list and set
@@ -551,6 +552,7 @@ static void write_to_ring(ev_category category, ev_message_type type,
 
     ring_head += RUNTIME_EVENTS_ITEM_LENGTH(head_header);
 
+    (void)atomic_fetch_add(&domain_ring_header->ring_wraps, 1);
     // advance the ring head
     atomic_store_release(&domain_ring_header->ring_head, ring_head);
   }

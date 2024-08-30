@@ -444,9 +444,10 @@ caml_runtime_events_read_poll(struct caml_runtime_events_cursor *cursor,
 
     do {
       uint64_t buf[RUNTIME_EVENTS_MAX_MSG_LENGTH];
-      uint64_t ring_mask, header, msg_length, ring_masked_pos;
+      uint64_t ring_mask, header, msg_length, ring_masked_pos, wrap1, wrap2;
       ring_head = atomic_load_acquire(&runtime_events_buffer_header->ring_head);
       ring_tail = atomic_load_acquire(&runtime_events_buffer_header->ring_tail);
+      wrap1 = atomic_load_acquire(&runtime_events_buffer_header->ring_wraps);
 
       if (ring_head > cursor->current_positions[domain_num]) {
         if (cursor->lost_events) {
@@ -482,10 +483,11 @@ caml_runtime_events_read_poll(struct caml_runtime_events_cursor *cursor,
 
       atomic_thread_fence(memory_order_seq_cst);
 
+      wrap2 = atomic_load_acquire(&runtime_events_buffer_header->ring_wraps);
       ring_head = atomic_load_acquire(&runtime_events_buffer_header->ring_head);
 
       /* Check the message we've read hasn't been overwritten by the writer */
-      if (ring_head > cursor->current_positions[domain_num]) {
+      if (ring_head > cursor->current_positions[domain_num] || wrap1 != wrap2) {
         /* It potentially has, retry for the next one after we've notified
              the callbacks about lost messages. */
         int lost_words = ring_head - cursor->current_positions[domain_num];

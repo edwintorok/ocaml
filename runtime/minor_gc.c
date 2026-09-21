@@ -531,7 +531,7 @@ caml_empty_minor_heap_promote(caml_domain_state* domain,
   value* young_ptr = domain->young_ptr;
   value* young_end = domain->young_end;
   uintnat minor_allocated_bytes = (uintnat)young_end - (uintnat)young_ptr;
-  uintnat prev_alloc_words;
+  uintnat prev_alloc_words, promoted_words;
   struct oldify_state st = {0};
   value **r;
   intnat c, curr_idx;
@@ -694,7 +694,8 @@ caml_empty_minor_heap_promote(caml_domain_state* domain,
   caml_reset_young_limit(domain);
 
   domain->stat_minor_words += Wsize_bsize (minor_allocated_bytes);
-  domain->stat_promoted_words += domain->allocated_words - prev_alloc_words;
+  promoted_words = domain->allocated_words - prev_alloc_words;
+  domain->stat_promoted_words += promoted_words;
 
   /* Must be called during the STW section -- before any mutators
      start running, so before arriving at the barrier. */
@@ -724,9 +725,8 @@ caml_empty_minor_heap_promote(caml_domain_state* domain,
 
   call_timing_hook(&caml_minor_gc_end_hook);
   CAML_EV_COUNTER(EV_C_MINOR_PROMOTED,
-                  Bsize_wsize(domain->allocated_words - prev_alloc_words));
-  CAML_EV_COUNTER(EV_C_MINOR_PROMOTED_WORDS,
-                  domain->allocated_words - prev_alloc_words);
+                  Bsize_wsize(promoted_words));
+  CAML_EV_COUNTER(EV_C_MINOR_PROMOTED_WORDS, promoted_words);
 
   CAML_EV_COUNTER(EV_C_MINOR_ALLOCATED, minor_allocated_bytes);
   CAML_EV_COUNTER(EV_C_MINOR_ALLOCATED_WORDS,

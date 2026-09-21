@@ -169,6 +169,9 @@ Working version
 - #15092: do not lose domain allocation stats on termination
   (Edwin Török, report by Eduardo Souza, review by Stefan Muenzel)
 
+- #NNNN: fix emitted value for EV_C_MINOR_PROMOTED_WORDS
+  (Edwin Török, review by)
+
 ### Type system:
 
 * #11648, #14766, #14768, #14776, #14801, #14842, #14845: Keep expansion and

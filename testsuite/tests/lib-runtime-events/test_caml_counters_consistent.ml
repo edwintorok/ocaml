@@ -115,7 +115,7 @@ let alloc_workload () =
 
 let domain_workload () =
   (* Multi domain *)
-  let domains = Array.init 2 (fun _ -> Domain.spawn alloc_workload)
+  let domains = Array.init 8 (fun _ -> Domain.spawn alloc_workload)
   in
   Array.iter Domain.join domains
 

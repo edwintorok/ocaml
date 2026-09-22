@@ -733,6 +733,19 @@ caml_empty_minor_heap_promote(caml_domain_state* domain,
                   Bsize_wsize(promoted_words));
   CAML_EV_COUNTER(EV_C_MINOR_PROMOTED_WORDS, promoted_words);
 
+  /* these have been allocated in the major heap, so add it back  for the purposes of
+   * emitting major heap counters. */
+  promoted_words += st.promoted_words_rejected;
+
+  /* This counter is cumulative, emit it here to ensure the invariant
+   * 'promoted_words <= major_words' for runtime events observers.
+   * Also domains may not run a final major GC before termination,
+   * so if we don't emit it, then the ALLOCATED_WORDS sum in runtime events
+   * would be incorrect.
+   * */
+  if (promoted_words > 0)
+    CAML_EV_COUNTER(EV_C_MAJOR_ALLOCATED_WORDS, promoted_words);
+
   CAML_EV_COUNTER(EV_C_MINOR_ALLOCATED, minor_allocated_bytes);
   CAML_EV_COUNTER(EV_C_MINOR_ALLOCATED_WORDS,
                   Wsize_bsize(minor_allocated_bytes));

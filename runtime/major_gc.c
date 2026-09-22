@@ -1175,7 +1175,12 @@ update_major_slice_work(intnat howmuch,
 
   if (log_events) {
     CAML_EV_COUNTER(EV_C_MAJOR_HEAP_WORDS, (uintnat)heap_words);
-    CAML_EV_COUNTER(EV_C_MAJOR_ALLOCATED_WORDS, my_alloc_count);
+    /* this counter is cumulative, and we've already emitted the promoted_words
+     * during minor GC.
+     * allocated_words = direct_words + promoted_words
+     * So we emit the same value for ALLOCATED_WORDS and DIRECT_ALLOCATED_WORDS below
+     * */
+    CAML_EV_COUNTER(EV_C_MAJOR_ALLOCATED_WORDS, my_alloc_direct_count);
     CAML_EV_COUNTER(EV_C_MAJOR_DIRECT_ALLOCATED_WORDS, my_alloc_direct_count);
     CAML_EV_COUNTER(EV_C_MAJOR_SUSPENDED_ALLOCATED_WORDS,
                     my_alloc_suspended_count);

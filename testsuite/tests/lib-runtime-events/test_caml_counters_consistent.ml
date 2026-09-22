@@ -140,7 +140,10 @@ let () =
       let b = check_consistency domain_workload in
       a + b
     in
+    Gc.full_major ();
+    Gc.minor ();
+    Gc.print_stat stdout;
     if errors > 0 then begin
       Printf.eprintf "FAIL: %d mismatches\n" errors;
       exit 1
-    end
+    end;

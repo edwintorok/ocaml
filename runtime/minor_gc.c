@@ -146,6 +146,7 @@ void caml_set_minor_heap_size (asize_t wsize)
 struct oldify_state {
   value todo_list;
   uintnat live_bytes;
+  uintnat promoted_words_rejected;
   caml_domain_state* domain;
 };
 
@@ -231,6 +232,12 @@ static int try_update_object_header(value v, volatile value *p, value result,
 static scanning_action_flags oldify_scanning_flags =
   SCANNING_ONLY_YOUNG_VALUES | SCANNING_ONLY_RECENT_FRAMES;
 
+static inline void conflict(struct oldify_state *st, value result, mlsize_t sz)
+{
+  *Hp_val(result) = Make_header(sz, No_scan_tag, caml_allocation_status());
+  st->promoted_words_rejected += Whsize_wosize(sz);
+}
+
 /* Note that the tests on the tag depend on the fact that Infix_tag,
    Forward_tag, and No_scan_tag are contiguous. */
 static void oldify_one (void* st_v, value v, volatile value *p)
@@ -283,8 +290,7 @@ static void oldify_one (void* st_v, value v, volatile value *p)
     else
     {
       /* Conflict - fix up what we allocated on the major heap */
-      *Hp_val(result) = Make_header(1, No_scan_tag,
-                                    caml_allocation_status());
+      conflict(st, result, 1);
       #ifdef DEBUG
       Field(result, 0) = Val_long(1);
       #endif
@@ -325,8 +331,7 @@ static void oldify_one (void* st_v, value v, volatile value *p)
       }
     } else {
       /* Conflict - fix up what we allocated on the major heap */
-      *Hp_val(result) = Make_header(sz, No_scan_tag,
-                                    caml_allocation_status());
+      conflict(st, result, sz);
       #ifdef DEBUG
       {
         for (int c = 0; c < sz; c++) {
@@ -346,8 +351,7 @@ static void oldify_one (void* st_v, value v, volatile value *p)
     CAMLassert (infix_offset == 0);
     if( !try_update_object_header(v, p, result, 0) ) {
       /* Conflict */
-      *Hp_val(result) = Make_header(sz, No_scan_tag,
-                                    caml_allocation_status());
+      conflict(st, result, sz);
       #ifdef DEBUG
       for(mlsize_t i = 0; i < sz; i++) {
         Field(result, i) = Val_long(1);
@@ -378,8 +382,8 @@ static void oldify_one (void* st_v, value v, volatile value *p)
         v = f;
         goto tail_call;
       } else {
-        *Hp_val(result) = Make_header(1, No_scan_tag,
-                                      caml_allocation_status());
+        /* Conflict - fix up what we allocated on the major heap */
+        conflict(st, result, 1);
         #ifdef DEBUG
         Field(result, 0) = Val_long(1);
         #endif
@@ -695,6 +699,7 @@ caml_empty_minor_heap_promote(caml_domain_state* domain,
 
   domain->stat_minor_words += Wsize_bsize (minor_allocated_bytes);
   promoted_words = domain->allocated_words - prev_alloc_words;
+  promoted_words -= st.promoted_words_rejected;
   domain->stat_promoted_words += promoted_words;
 
   /* Must be called during the STW section -- before any mutators

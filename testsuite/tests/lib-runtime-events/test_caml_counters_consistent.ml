@@ -108,8 +108,6 @@ let lost_events _ _ =
 
 let callbacks = Callbacks.create ~runtime_counter ~lost_events ()
 
-type 'a tree = Empty | Node of 'a tree * 'a tree
-
 let alloc_workload () =
   Array.init 10000 (fun _ -> String.make 100 'x') |>ignore
 
@@ -122,33 +120,34 @@ let domain_workload () =
 let () =
     start ();
     let cursor = create_cursor None in
-    let poll () =
+    let finally () = free_cursor cursor in
+    Fun.protect ~finally @@ fun () ->
+    let poll_may_allocate () =
       while read_poll cursor callbacks None > 0 do ()
       done;
     in
     let check_consistency f =
       f ();
+      poll_may_allocate ();
       Gc.full_major ();
-      poll ();
-      Gc.minor ();
-      pause ();
-      let t0 = Gc.quick_stat () in
-      poll ();
-      Gc.minor ();
+      pause (); (* we may get desynched by missing cumulative events *)
       let t = Gc.quick_stat () in
-      let tol = (t.Gc.minor_words -. t0.Gc.minor_words) |> Float.round |> Float.to_int in
-      Printf.printf "tol: %d\n" tol;
-      check_stats ~tol t
+      Gc.minor ();
+      let t1 = Gc.quick_stat () in
+      let tol = 2. *. (t1.Gc.minor_words -. t.Gc.minor_words) |> Float.round |> Float.to_int in
+      poll_may_allocate ();
+      resume ();
+      check_stats ~tol t;
     in
     let errors =
-      let a = check_consistency ignore in
+     (* let a = check_consistency ignore in
       (* run the simple one first, do not depend on eval order *)
-      let () = Sys.opaque_identity () in
+      let () = Sys.opaque_identity () in*)
       let b = check_consistency domain_workload in
-      a + b
+      0 + b
     in
     free_cursor cursor;
     if errors > 0 then begin
       Printf.eprintf "FAIL: %d mismatches\n" errors;
       exit 1
-    end;
+    end

@@ -118,6 +118,7 @@ let domain_workload () =
   Array.iter Domain.join domains
 
 let () =
+  (* TODO: sync on startup.... *)
     start ();
     let cursor = create_cursor None in
     let finally () = free_cursor cursor in

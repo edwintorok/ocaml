@@ -1175,12 +1175,7 @@ update_major_slice_work(intnat howmuch,
 
   if (log_events) {
     CAML_EV_COUNTER(EV_C_MAJOR_HEAP_WORDS, (uintnat)heap_words);
-    /* this counter is cumulative, and we've already emitted the promoted_words
-     * during minor GC.
-     * allocated_words = direct_words + promoted_words
-     * So we emit the same value for ALLOCATED_WORDS and DIRECT_ALLOCATED_WORDS below
-     * */
-    CAML_EV_COUNTER(EV_C_MAJOR_ALLOCATED_WORDS, my_alloc_direct_count);
+    CAML_EV_COUNTER(EV_C_MAJOR_ALLOCATED_WORDS, my_alloc_count);
     CAML_EV_COUNTER(EV_C_MAJOR_DIRECT_ALLOCATED_WORDS, my_alloc_direct_count);
     CAML_EV_COUNTER(EV_C_MAJOR_SUSPENDED_ALLOCATED_WORDS,
                     my_alloc_suspended_count);
@@ -2237,7 +2232,7 @@ static void major_collection_slice(intnat howmuch,
                    (atomic_load_relaxed(&caml_verb_gc) &
                     CAML_GC_MSG_SLICESIZE);
 
-  update_major_slice_work(howmuch, may_access_gc_phase, log_events);
+  update_major_slice_work(howmuch, may_access_gc_phase, 1/*log_events*/);
 
   /* When a full slice of major GC work is done,
      or the slice is interrupted (in mode Slice_interruptible),
@@ -2678,6 +2673,11 @@ int caml_init_major_gc(caml_domain_state* d) {
   return 0;
 }
 
+void caml_emit_major_gc_counters(void)
+{
+  update_major_slice_work (0, 0, 1);
+}
+
 void caml_teardown_major_gc(void) {
   caml_domain_state* d = Caml_state;
 
@@ -2688,7 +2688,7 @@ void caml_teardown_major_gc(void) {
   /* Account for latest allocations, but do not write to the event ring since
      we are out of the STW participant set; the ring may be torn down
      concurrently. */
-  update_major_slice_work (0, may_access_gc_phase, 0);
+  update_major_slice_work (0, may_access_gc_phase, 1);
   CAMLassert(!caml_addrmap_iter_ok(&d->mark_stack->compressed_stack,
                                    d->mark_stack->compressed_stack_iter));
   caml_addrmap_clear(&d->mark_stack->compressed_stack);

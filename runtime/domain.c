@@ -2295,6 +2295,8 @@ void caml_domain_terminate(bool last)
 
     /* No need to check for interrupts if we are the last domain running. */
     if (last) {
+      /* last chance to update runtime events counters */
+      caml_emit_major_gc_counters();
       CAML_EV_LIFECYCLE(EV_DOMAIN_TERMINATE, getpid());
       break;
     }
@@ -2342,6 +2344,9 @@ void caml_domain_terminate(bool last)
       caml_plat_lock_blocking(&s->lock);
       caml_plat_broadcast(&s->cond);
       caml_plat_unlock(&s->lock);
+
+      /* last chance to update runtime events counters */
+      caml_emit_major_gc_counters();
 
       /* We must signal domain termination before releasing [all_domains_lock]:
          after that, this domain will no longer take part in STWs and emitting

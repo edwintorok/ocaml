@@ -743,8 +743,6 @@ caml_empty_minor_heap_promote(caml_domain_state* domain,
    * so if we don't emit it, then the ALLOCATED_WORDS sum in runtime events
    * would be incorrect.
    * */
-  if (promoted_words > 0)
-    CAML_EV_COUNTER(EV_C_MAJOR_ALLOCATED_WORDS, promoted_words);
 
   CAML_EV_COUNTER(EV_C_MINOR_ALLOCATED, minor_allocated_bytes);
   CAML_EV_COUNTER(EV_C_MINOR_ALLOCATED_WORDS,

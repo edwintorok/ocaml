@@ -142,6 +142,7 @@ void caml_collect_gc_stats_sample_stw(caml_domain_state* domain)
        statistics. (Orphaning right now would be correct but
        insufficient as further stat updates may come after the current
        STW section.)  */
+    CAML_GC_MESSAGE(SLICESIZE, "zeroing about to be orphaned stats sample %p: pool_frag_words=%ld\n", stats, stats->heap_stats.pool_frag_words);
     memset(stats, 0, sizeof(*stats));
   } else {
     caml_collect_alloc_stats_sample(domain, &stats->alloc_stats);

@@ -94,14 +94,14 @@ let check_stats ~tol t =
   check ~tol "promoted_words" promoted_words t.Gc.promoted_words +
   check_words_bytes "promoted_bytes" promoted_words promoted_bytes +
   check ~tol "major_words" major_words t.Gc.major_words +
-  check_int "heap_words" heap_words t.Gc.heap_words +
-  check_int "heap_chunks" (make ()) t.Gc.heap_chunks +
-  check_int "live_words" live_words t.Gc.live_words +
-  check_int "live_blocks" live_blocks t.Gc.live_blocks +
-  check_int "free_words" free_words t.Gc.free_words +
-  check_int "free_blocks" (make ()) t.Gc.free_blocks +
-  check_int "largest_free" (make ()) t.Gc.largest_free +
-  check_int "fragments" fragments t.Gc.fragments
+  check_int ~tol "heap_words" heap_words t.Gc.heap_words +
+  check_int ~tol "heap_chunks" (make ()) t.Gc.heap_chunks +
+  check_int ~tol "live_words" live_words t.Gc.live_words +
+  check_int ~tol "live_blocks" live_blocks t.Gc.live_blocks +
+  check_int ~tol "free_words" free_words t.Gc.free_words +
+  check_int ~tol "free_blocks" (make ()) t.Gc.free_blocks +
+  check_int ~tol "largest_free" (make ()) t.Gc.largest_free +
+  check_int ~tol "fragments" fragments t.Gc.fragments
 
 let lost_events _ _ =
   prerr_endline "EVENTS LOST"
@@ -122,15 +122,22 @@ let domain_workload () =
 let () =
     start ();
     let cursor = create_cursor None in
+    let poll () =
+      while read_poll cursor callbacks None > 0 do ()
+      done;
+    in
     let check_consistency f =
       f ();
       Gc.full_major ();
+      poll ();
+      Gc.minor ();
+      pause ();
+      let t0 = Gc.quick_stat () in
+      poll ();
       Gc.minor ();
       let t = Gc.quick_stat () in
-      Gc.minor ();
-      while read_poll cursor callbacks None > 0 do ()
-      done;
-      let tol = t |> Obj.repr |> Obj.reachable_words in
+      let tol = (t.Gc.minor_words -. t0.Gc.minor_words) |> Float.round |> Float.to_int in
+      Printf.printf "tol: %d\n" tol;
       check_stats ~tol t
     in
     let errors =
@@ -140,8 +147,7 @@ let () =
       let b = check_consistency domain_workload in
       a + b
     in
-    Gc.full_major ();
-    Gc.minor ();
+    free_cursor cursor;
     if errors > 0 then begin
       Printf.eprintf "FAIL: %d mismatches\n" errors;
       exit 1

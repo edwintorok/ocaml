@@ -831,6 +831,7 @@ void caml_redarken_pool(struct pool* r, scanning_action f, void* fdata) {
 /* Move the given heap stats to the orphan pools.
    You need to hold the [pool_freelist] lock. */
 static void orphan_heap_stats_with_lock(struct caml_heap_state *heap) {
+    CAML_GC_MESSAGE(SLICESIZE, "orphaning heap stats %p: pool_frag_words=%ld\n", &heap->stats, heap->stats.pool_frag_words);
   caml_accum_heap_stats(&pool_freelist.stats, &heap->stats);
   memset(&heap->stats, 0, sizeof(heap->stats));
 }
@@ -845,14 +846,18 @@ static void adopt_pool_stats_with_lock(
 
     calc_pool_stats(r, sz, &pool_stats);
     caml_accum_heap_stats(&adopter->stats, &pool_stats);
+    CAML_GC_MESSAGE(SLICESIZE, "adopted orphaned heap stats %p: pool_frag_words=%ld\n", &pool_stats, pool_stats.pool_frag_words);
     caml_remove_heap_stats(&pool_freelist.stats, &pool_stats);
+    CAML_GC_MESSAGE(SLICESIZE, "subtracted orphaned heap stats %p: pool_frag_words=%ld\n", &pool_stats, pool_stats.pool_frag_words);
 }
 
 /* Move the stats of all orphan pools into the given heap.
    You need to hold the [pool_freelist] lock. */
 static void adopt_all_pool_stats_with_lock(struct caml_heap_state *adopter) {
   caml_accum_heap_stats(&adopter->stats, &pool_freelist.stats);
+  CAML_GC_MESSAGE(SLICESIZE, "adopted all pool stats %p; pool_frag_words=%ld\n", &pool_freelist.stats, pool_freelist.stats.pool_frag_words);
   memset(&pool_freelist.stats, 0, sizeof(pool_freelist.stats));
+    CAML_GC_MESSAGE(SLICESIZE, "zeroed orphaned heap stats\n");
 }
 
 void caml_collect_heap_stats_sample(
@@ -867,6 +872,7 @@ void caml_accum_orphan_heap_stats(struct heap_stats* acc)
 {
   caml_plat_lock_blocking(&pool_freelist.lock);
   caml_accum_heap_stats(acc, &pool_freelist.stats);
+  CAML_GC_MESSAGE(SLICESIZE, "added orphaned heap stats\n");
   caml_plat_unlock(&pool_freelist.lock);
 }
 

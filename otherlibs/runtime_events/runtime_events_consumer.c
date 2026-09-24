@@ -1054,6 +1054,11 @@ static int ml_user_unit(int domain_id, void *callback_data, int64_t timestamp,
   struct callbacks_exception_holder* holder = callback_data;
   callbacks_root = *holder->callbacks_val;
   wrapper_root = *holder->wrapper;
+  if (!caml_array_length(Field(callbacks_root, 6))) {
+    /* ev_user_events is empty, avoid allocating the cache
+     * if we'd drop these events */
+    CAMLreturnT(int, 1);
+  }
 
   event = caml_runtime_events_user_resolve_cached(wrapper_root, event_id,
                                                                 event_name,
@@ -1092,6 +1097,11 @@ static int ml_user_span(int domain_id, void *callback_data, int64_t timestamp,
   struct callbacks_exception_holder* holder = callback_data;
   callbacks_root = *holder->callbacks_val;
   wrapper_root = *holder->wrapper;
+  if (!caml_array_length(Field(callbacks_root, 6))) {
+    /* ev_user_events is empty, avoid allocating the cache
+     * if we'd drop these events */
+    CAMLreturnT(int, 1);
+  }
 
   event = caml_runtime_events_user_resolve_cached(wrapper_root, event_id,
                                                                 event_name,
@@ -1129,6 +1139,11 @@ static int ml_user_int(int domain_id, void *callback_data,
   struct callbacks_exception_holder* holder = callback_data;
   callbacks_root = *holder->callbacks_val;
   wrapper_root = *holder->wrapper;
+  if (!caml_array_length(Field(callbacks_root, 6))) {
+    /* ev_user_events is empty, avoid allocating the cache
+     * if we'd drop these events */
+    CAMLreturnT(int, 1);
+  }
 
   event = caml_runtime_events_user_resolve_cached(wrapper_root, event_id,
                                                                   event_name,
@@ -1168,6 +1183,11 @@ static int ml_user_custom(int domain_id, void *callback_data, int64_t timestamp,
   struct callbacks_exception_holder* holder = callback_data;
   callbacks_root = *holder->callbacks_val;
   wrapper_root = *holder->wrapper;
+  if (!caml_array_length(Field(callbacks_root, 6))) {
+    /* ev_user_events is empty, avoid allocating the cache
+     * if we'd drop these events */
+    CAMLreturnT(int, 1);
+  }
 
   event = caml_runtime_events_user_resolve_cached(wrapper_root, event_id,
                                                                 event_name,

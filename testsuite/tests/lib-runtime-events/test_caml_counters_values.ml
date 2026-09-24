@@ -1,5 +1,6 @@
 (* TEST
  include runtime_events;
+ flags="-g";
 *)
 open Runtime_events
 
@@ -128,6 +129,9 @@ let run_and_compare ~__LINE__ f counter_expected counter_type observe_gc =
   Dump.drop ();
   line ~__LINE__;
   let cursor = create_cursor None in
+  (* this may complain about dropped events, that is expected,
+     we haven't been watching the ring from the beginning *)
+  poll cursor Dump.noop;
   let finally () = free_cursor cursor in
   Fun.protect ~finally @@ fun () ->
   let observe () =
@@ -153,14 +157,15 @@ let run_and_compare ~__LINE__ f counter_expected counter_type observe_gc =
   delta_gc, delta_counter
 
 let run_and_compare_test ~__LINE__ f counter_expected counter_type observe_gc expected_value_geq=
-  let delta_gc, delta_counter = run_and_compare ~__LINE__:Stdlib.__LINE__ ignore counter_expected counter_type observe_gc in
-  let tol = abs (delta_gc - delta_counter) in
-  if tol > delta_gc then begin
+  let delta_gc0, delta_counter0 = run_and_compare ~__LINE__:Stdlib.__LINE__ ignore counter_expected counter_type observe_gc in
+  let tol = abs (delta_gc0 - delta_counter0) in
+  if tol > delta_gc0 then begin
     Dump.dump ();
     Format.eprintf "[!] Runtime counter value %s on no-op workload: %+d, GC counter value: %+d@."
       (runtime_counter_name counter_expected)
-      delta_counter delta_gc;
+      delta_counter0 delta_gc0;
   end;
+  let tol = max 10 (max delta_gc0 tol) in (* don't be too strict *)
   let delta_gc, delta_counter = run_and_compare ~__LINE__ f counter_expected counter_type observe_gc in
   let bad = ref false in
   let log fmt =
@@ -175,14 +180,14 @@ let run_and_compare_test ~__LINE__ f counter_expected counter_type observe_gc ex
       (runtime_counter_name counter_expected)
       delta_gc delta_counter;
   end;
-  if delta_gc < expected_value_geq then begin
+  if delta_gc - delta_gc0 < expected_value_geq then begin
     log "[GC statistic for %s %d < %d"
       (runtime_counter_name counter_expected) delta_gc expected_value_geq;
   end;
-  if delta_counter < expected_value_geq then begin
-    log "Runtime counter values for %s too low: %d < %d"
+  if delta_counter - delta_counter0 < expected_value_geq then begin
+    log "Runtime counter values for %s too low: %d - %d < %d"
       (runtime_counter_name counter_expected)
-      delta_counter expected_value_geq;
+      delta_counter delta_counter0 expected_value_geq;
   end;
   if not !bad then Format.printf "OK@."
 
@@ -220,6 +225,16 @@ let run_with_spin_domain ~do_major_slice f () =
   in
   run_with_domain ~domain_workload ~after ~before f
 
+let run_domains ~do_major_slice n f () =
+  let finally () =
+    if do_major_slice then major_slice ()
+  in
+  let domains = Array.init n @@ fun _ ->
+    Domain.spawn @@ fun () ->
+    Fun.protect ~finally f
+  in
+  Array.iter Domain.join domains
+
 let run_and_compare_scenarios f counter_expected counter_type
 observe_gc expected_value_geq=
   let scenario ~__LINE__ name f =
@@ -238,10 +253,61 @@ observe_gc expected_value_geq=
     (run_with_spin_domain ~do_major_slice:true f);
 
   scenario ~__LINE__ "Main domain, with spinning extra domain and no explicit major slice"
-    (run_with_spin_domain ~do_major_slice:false f)
+    (run_with_spin_domain ~do_major_slice:false f);
+
+  scenario ~__LINE__ "2 domains, no explicit major slice"
+    (run_domains 2 ~do_major_slice:false f);
+
+  scenario ~__LINE__ "2 domains, with explicit major slice"
+    (run_domains 2 ~do_major_slice:true f);
+
+  scenario ~__LINE__ "8 domains, no explicit major slice"
+    (run_domains 8 ~do_major_slice:false f);
+
+  scenario ~__LINE__ "8 domains, with explicit major slice"
+    (run_domains 8 ~do_major_slice:true f)
 
 
+
+(* should match Max_young_wosize *)
+let max_young_wosize = 256
+let word_size_bytes = Sys.word_size / 8
+
+let alloc_words words =
+  (* do not use array allocations, because they might also trigger a minor GC *)
+  String.make ((words - 2) * word_size_bytes) ' '
+
+(* use a value that would distinguishable in the debug output *)
+let distinguishable_large = 123456
+let () =
+  (* ensure this is not allocated in the minor heap, or pools, but as a large allocation *)
+  assert (distinguishable_large > 2*max_young_wosize)
+
+let distinguishable_small = 123
+let () =
+  (* ensure this is not allocated in the minor heap, or pools, but as a large allocation *)
+  assert (distinguishable_small < max_young_wosize)
 
 let () =
+  Printexc.record_backtrace true;
     let counter = EV_C_MAJOR_ALLOCATED_WORDS in
-    run_and_compare_scenarios ignore counter Additive (fun t -> t.major_words |> int_of_float) 0
+    run_and_compare_scenarios ignore counter Additive (fun t -> t.major_words |> int_of_float) 0;
+
+    let run_alloc ?(promote=false) n =
+      Format.printf "@.Allocation size: %d@." n;
+      run_and_compare_scenarios (fun () ->
+        (* ensure that we see the exact value [n] promoted,
+           and not summed with previous values in the minor heap
+         *)
+        if promote then Gc.minor ();
+        let s = alloc_words n in
+        if promote then Gc.minor ();
+        (* keep [s] alive across Gc.minor to ensure promotion *)
+        Sys.opaque_identity s |> ignore
+      ) counter Additive (fun t -> t.major_words |> int_of_float) n
+    in
+
+    run_alloc distinguishable_large;
+
+    run_alloc ~promote:true distinguishable_small
+

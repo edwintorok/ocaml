@@ -187,6 +187,7 @@ let run_and_compare ~__LINE__ f counter_expected counter_type observe_gc =
     (* major GC counters are only emitted if a major slice occurred *)
     let _ : int = Gc.major_slice 0 in
     (* ensure stats are up-to-date for [quick_stat] *)
+    poll cursor callbacks ;
     Gc.minor () ;
     let gc = Gc.quick_stat () |> observe_gc in
     (* polling allocates int64 timestamps, so run final one after *)
@@ -205,8 +206,19 @@ let run_and_compare ~__LINE__ f counter_expected counter_type observe_gc =
   (* this may complain about dropped events, that is expected,
      we haven't been watching the ring from the beginning *)
   Drop.drop cursor ;
+
+  (* emit custom event *)
+  emit_line ~__LINE__ ;
+  (* this may allocate cache for custom events *)
+  poll cursor callbacks ;
+  (* once more, in case the above allocated *)
   Gc.minor ();
-  history := 0 ;
+  Dump.drop () ;
+  Drop.drop cursor ;
+
+  history := 0;
+  counter_value := 0;
+
   (* enable runtime events just during the observations *)
   resume () ;
   emit_line ~__LINE__ ;
@@ -216,12 +228,13 @@ let run_and_compare ~__LINE__ f counter_expected counter_type observe_gc =
   let after_gc, after_counter = observe () in
   emit_line ~__LINE__ ;
   pause () ;
+
   let delta_gc = after_gc - baseline_gc
   and delta_counter = after_counter - baseline_counter
   and history =
     Array.sub counter_history 0 !history
     |> Array.to_seq
-    |> Seq.filter (fun x -> x > 0)
+    |> Seq.filter (fun x -> x <> 0)
     |> Array.of_seq
   in
   (delta_gc, delta_counter, history)
@@ -230,6 +243,10 @@ let gc_stat_words = Gc.quick_stat () |> Obj.repr |> Obj.reachable_words
 
 let run_and_compare_test ~__LINE__ f counter_expected counter_type observe_gc
     expected_value_geq =
+  (* warmup: may allocate caches, ignore *)
+  let _ = run_and_compare ~__LINE__:Stdlib.__LINE__ ignore counter_expected
+    counter_type observe_gc
+  in
   let delta_gc0, delta_counter0, history0 =
     run_and_compare ~__LINE__:Stdlib.__LINE__ ignore counter_expected
       counter_type observe_gc
@@ -259,16 +276,16 @@ let run_and_compare_test ~__LINE__ f counter_expected counter_type observe_gc
     log fmt
   in
   if abs (delta_gc - delta_counter) > tol then begin
-    log "GC statistics do not match runtime counter values for %s: %d != %d"
+    log "GC statistics do not match runtime counter values for %s: %d (GC) != %d (counter)"
       (runtime_counter_name counter_expected)
       delta_gc delta_counter
   end ;
-  if delta_gc - delta_gc0 < expected_value_geq then begin
+  if delta_gc < expected_value_geq then begin
     log "GC statistic for %s %d - %d < %d"
       (runtime_counter_name counter_expected)
       delta_gc delta_gc0 expected_value_geq
   end ;
-  if delta_counter - delta_counter0 < expected_value_geq then begin
+  if delta_counter < expected_value_geq then begin
     log "Runtime counter values for %s too low: %d - %d < %d"
       (runtime_counter_name counter_expected)
       delta_counter delta_counter0 expected_value_geq

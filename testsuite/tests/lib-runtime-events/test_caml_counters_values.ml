@@ -148,9 +148,6 @@ let run_and_compare ~__LINE__ f counter_expected counter_type observe_gc =
   Dump.drop ();
   line ~__LINE__;
   let cursor = create_cursor None in
-  (* this may complain about dropped events, that is expected,
-     we haven't been watching the ring from the beginning *)
-  poll cursor Dump.noop;
   let finally () = free_cursor cursor in
   Fun.protect ~finally @@ fun () ->
   let observe () =
@@ -161,14 +158,21 @@ let run_and_compare ~__LINE__ f counter_expected counter_type observe_gc =
     let gc = Gc.quick_stat () |> observe_gc in
     (* polling allocates int64 timestamps, so run final one after *)
     poll cursor callbacks;
+    let counter = !counter_value in
     (* this may allocate (when processed), so run after *)
     gc_observed gc;
-    let counter = !counter_value in
     gc, counter
   in
+  (* this may complain about dropped events, that is expected,
+     we haven't been watching the ring from the beginning *)
+  poll cursor Dump.noop;
+  history := 0;
+
   let baseline_gc, baseline_counter = observe () in
+  (* don't drop events here, the additive counters would get out of sync *)
   with_workload f;
   let after_gc, after_counter = observe () in
+
   let delta_gc = after_gc - baseline_gc
   and delta_counter = after_counter - baseline_counter in
   delta_gc, delta_counter, Array.sub counter_history 0 !history |> Array.to_seq |> Seq.filter (fun x -> x > 0) |> Array.of_seq
@@ -215,19 +219,21 @@ let run_and_compare_test ~__LINE__ f counter_expected counter_type observe_gc ex
 let major_slice () =
   let _ : int = Gc.major_slice 0 in ()
 
-let run_in_single_domain ~after f ()  =
-  let domain = Domain.spawn (fun () ->
-    Fun.protect ~finally:after f) in
+let run_in_single_domain ~after f  =
+  (* TODO: use wrapper that spawns and waits *)
+  let in_domain () = Fun.protect ~finally:after f in
+  fun () ->
+  let domain = Domain.spawn in_domain in
   Domain.join domain
 
 let run_with_domain ~domain_workload ~before ~after f =
+  let body () = before (); Fun.protect ~finally:after f in
+  fun () ->
   let domain = Domain.spawn domain_workload in
   let finally () = Domain.join domain in
-  Fun.protect ~finally @@ fun () ->
-  before ();
-  Fun.protect ~finally:after f
+  Fun.protect ~finally body
 
-let run_with_spin_domain ~do_major_slice f () =
+let run_with_spin_domain ~do_major_slice f =
   let run = Atomic.make true
   and domain_running = Atomic.make false
   in
@@ -245,13 +251,12 @@ let run_with_spin_domain ~do_major_slice f () =
   in
   run_with_domain ~domain_workload ~after ~before f
 
-let run_domains ~after n f () =
-  let domains = Array.init n @@ fun _ ->
-    Domain.spawn @@ fun () ->
-    Fun.protect ~finally:after f
-  in
+let run_domains ~after n f =
+  let body () = Fun.protect ~finally:after f in
+  let in_domain _ = Domain.spawn body in
+  fun () ->
+  let domains = Array.init n in_domain in
   Array.iter Domain.join domains
-
 
 let run_and_compare_scenarios f counter_expected counter_type
 observe_gc expected_value_geq=

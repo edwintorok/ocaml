@@ -58,44 +58,48 @@ let dump_history () =
 let callbacks = Callbacks.create ~runtime_counter ()
 
 let amount = 1234567
+let count = 3
 
 let alloc () =
-  String.make (amount * Sys.word_size / 8) ' '
+  Array.init count (fun _ -> String.make (amount * Sys.word_size / 8) ' ')
   |> Sys.opaque_identity
 
-let run_alloc () =
-  let _ : string = alloc () in
-  ()
+let run_alloc _ =
+  let s = alloc () in
+  Gc.minor ();
+  Sys.opaque_identity s |> ignore
 
-let run_alloc_pause_resume () =
+let run_alloc_pause_resume _ =
   pause ();
-  let _ : string = alloc () in
+  let _ : _ array = alloc () in
   resume ()
 
-let run_in_domain () =
-  let domain = Domain.spawn run_alloc in
-  Domain.join domain
+let run_in_domain n  =
+  let domains = Array.init n (fun _ -> Domain.spawn Gc.full_major) in
+  run_alloc ();
+  Array.iter Domain.join domains
 
 let expected = alloc () |> Obj.repr |> Obj.reachable_words
 
-let workload f =
+let workload f n =
   resume ();
-  let () = f () in
+  let () = f n in
   (* some counters are only emitted by the major GC *)
   Gc.full_major ();
   pause ()
 
-let measure name cursor f =
+let measure name cursor f extra =
   (* start fresh *)
   Gc.compact ();
   reset ();
-  workload f;
+  workload f extra;
   poll_all cursor callbacks;
   let actual = sum history in
   (* could be more due to other small allocations, but it shouldn't be less:
      if it is less it means we've missed the allocation completely
   *)
   Format.eprintf "Testing %s: @?" name;
+  let expected = (1 + extra) * expected in
   if actual < expected then begin
     Format.eprintf "%s %d < expected %d@." (runtime_counter_name expected_counter) actual expected;
     dump_history ()
@@ -108,6 +112,6 @@ let () =
   let cursor = create_cursor None in
   let finally () = free_cursor cursor in
   Fun.protect ~finally @@ fun () ->
-  measure "alloc" cursor run_alloc;
-  measure "run_in_domain" cursor run_in_domain;
-  measure "pause+alloc+resume" cursor run_alloc_pause_resume
+  measure "alloc" cursor run_alloc 0;
+  measure "run_in_domain" cursor run_in_domain 2;
+  measure "pause+alloc+resume" cursor run_alloc_pause_resume 0

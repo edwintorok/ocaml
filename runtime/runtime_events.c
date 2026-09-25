@@ -674,6 +674,25 @@ void caml_ev_counter(ev_runtime_counter counter, uint64_t val) {
   }
 }
 
+static atomic_uint_fast64_t runtime_counter_paused[EV_C_RUNTIME_COUNTER_LAST];
+
+void caml_ev_counter_accum(int cond, ev_runtime_counter counter, uint64_t val) {
+  if (!atomic_load_relaxed(&runtime_events_enabled))
+    return;
+  if ( ring_is_active() && cond ) {
+    uint64_t buf[1];
+
+    buf[0] =
+      val + atomic_exchange(&runtime_counter_paused[counter], 0);
+
+    write_to_ring(
+      EV_RUNTIME, (ev_message_type){.runtime=EV_COUNTER}, counter, 1, buf, 0);
+  } else {
+    (void)atomic_fetch_add(&runtime_counter_paused[counter], val);
+  }
+}
+
+
 void caml_ev_lifecycle(ev_lifecycle lifecycle, int64_t data) {
   if ( ring_is_active() ) {
     write_to_ring(EV_RUNTIME, (ev_message_type){.runtime=EV_LIFECYCLE},

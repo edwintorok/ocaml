@@ -41,6 +41,7 @@
 #define CAML_EV_BEGIN(p) caml_ev_begin(p)
 #define CAML_EV_END(p) caml_ev_end(p)
 #define CAML_EV_COUNTER(c,v) caml_ev_counter(c,v)
+#define CAML_EV_COUNTER_ACCUM(cond,c,v) caml_ev_counter_accum(cond,c,v)
 #define CAML_EV_LIFECYCLE(l,d) caml_ev_lifecycle(l,d)
 #define CAML_RUNTIME_EVENTS_INIT() caml_runtime_events_init()
 #define CAML_RUNTIME_EVENTS_DESTROY() caml_runtime_events_destroy()
@@ -162,7 +163,9 @@ typedef enum {
 
     EV_C_MAJOR_DIRECT_ALLOCATED_WORDS,
     EV_C_MAJOR_SUSPENDED_ALLOCATED_WORDS,
-    EV_C_MAJOR_RESUMED_ALLOCATED_WORDS
+    EV_C_MAJOR_RESUMED_ALLOCATED_WORDS,
+
+    EV_C_RUNTIME_COUNTER_LAST
 } ev_runtime_counter;
 
 typedef enum {
@@ -332,6 +335,7 @@ CAMLextern char_os* caml_runtime_events_current_location(void);
 void caml_ev_begin(ev_runtime_phase phase);
 void caml_ev_end(ev_runtime_phase phase);
 void caml_ev_counter(ev_runtime_counter counter, uint64_t val);
+void caml_ev_counter_accum(int cond, ev_runtime_counter counter, uint64_t val);
 CAMLextern void caml_ev_lifecycle(ev_lifecycle lifecycle, int64_t data);
 
 /* caml_ev_alloc records the (bucketed) size of allocations into the major heap.

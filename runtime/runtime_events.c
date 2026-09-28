@@ -217,6 +217,8 @@ char_os* caml_runtime_events_current_location(void) {
   ring buffers */
 void caml_runtime_events_destroy(void) {
   if (atomic_load_acquire(&runtime_events_enabled)) {
+    caml_emit_major_gc_counters();
+
     write_to_ring(
       EV_RUNTIME, (ev_message_type){.runtime=EV_LIFECYCLE}, EV_RING_STOP, 0,
       NULL, 0);

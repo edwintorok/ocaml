@@ -2677,6 +2677,21 @@ int caml_init_major_gc(caml_domain_state* d) {
   return 0;
 }
 
+void caml_emit_major_gc_counters(void)
+{
+  /* Emit final absolute runtime events counters for the major heap.
+     Calling [update_major_slice_work] wouldn't be sufficient,
+     because we also need to include the orphaned stats.
+     Orphaned stats cannot be reported by [update_major_slice_work]
+     as an absolute value, because until adopted it doesn't belong to any domain.
+   */
+  struct heap_stats s;
+  caml_collect_heap_stats_sample(Caml_state->shared_heap, &s);
+  caml_accum_orphan_heap_stats(&s);
+  caml_emit_heap_stats(&s);
+  CAML_EV_COUNTER(EV_C_MAJOR_HEAP_WORDS, s.pool_words + s.large_words);
+}
+
 void caml_teardown_major_gc(void) {
   caml_domain_state* d = Caml_state;
 

@@ -1188,6 +1188,7 @@ update_major_slice_work(intnat howmuch,
     CAML_EV_COUNTER(EV_C_MAJOR_ALLOC_COUNTER, atomic_load (&alloc_counter));
     CAML_EV_COUNTER(EV_C_MAJOR_SLICE_TARGET, dom_st->slice_target);
     CAML_EV_COUNTER(EV_C_MAJOR_SLICE_BUDGET, dom_st->slice_budget);
+    caml_emit_adopt_heap_stats(dom_st->shared_heap);
   }
 }
 

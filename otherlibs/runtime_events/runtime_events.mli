@@ -223,6 +223,70 @@ last major slice. Work suspended during a ramp-up phase and never resumed is
 never collected against.
 @since 5.6
 *)
+| EV_C_ORPHAN_MAJOR_HEAP_POOL_WORDS
+(**
+Total {b words} orphaned from the current domain's heap pools on domain termination.
+This is the sum of unallocated and live words in each pool.
+@since 5.6 *)
+| EV_C_ORPHAN_MAJOR_HEAP_POOL_LIVE_WORDS
+(**
+Current live {b words} orphaned from the current domain's major heap pools on domain termination.
+@since 5.6 *)
+| EV_C_ORPHAN_MAJOR_HEAP_LARGE_WORDS
+(**
+Total {b words} orphaned from a Domain's major heap large allocations on domain termination.
+A large allocation is an allocation larger than the largest sized pool.
+@since 5.6 *)
+| EV_C_ORPHAN_MAJOR_HEAP_POOL_FRAG_WORDS
+(**
+Words orphaned from a Domain's major heap pools lost to fragmentation on domain termination.
+This is due to there not being a pool with the exact size of an allocation and a larger sized
+pool needing to be used.
+@since 5.6 *)
+| EV_C_ORPHAN_MAJOR_HEAP_POOL_LIVE_BLOCKS
+(**
+Live blocks orphaned from a Domain's major heap pools on domain termination.
+@since 5.6 *)
+| EV_C_ORPHAN_MAJOR_HEAP_LARGE_BLOCKS
+(**
+Live blocks orphaned from a Domain's major heap large allocations on domain termination.
+@since 5.6 *)
+| EV_C_ORPHAN_MAJOR_HEAP_WORDS
+(**
+Major heap size in {b words} of a Domain that was orphaned on domain termination.
+@since 5.6 *)
+| EV_C_ADOPT_MAJOR_HEAP_POOL_WORDS
+(**
+Total {b words} adopted into a domain's heap pools.
+This is the sum of unallocated and live words in each pool.
+@since 5.6 *)
+| EV_C_ADOPT_MAJOR_HEAP_POOL_LIVE_WORDS
+(**
+Current live {b words} adopted into the current domain's major heap pools.
+@since 5.6 *)
+| EV_C_ADOPT_MAJOR_HEAP_LARGE_WORDS
+(**
+Total {b words} adopted into a Domain's major heap large allocations.
+A large allocation is an allocation larger than the largest sized pool.
+@since 5.6 *)
+| EV_C_ADOPT_MAJOR_HEAP_POOL_FRAG_WORDS
+(**
+Words adopted into a Domain's major heap pools lost to fragmentation.
+This is due to there not being a pool with the exact size of an allocation and a larger sized
+pool needing to be used.
+@since 5.6 *)
+| EV_C_ADOPT_MAJOR_HEAP_POOL_LIVE_BLOCKS
+(**
+Live blocks adopted into a Domain's major heap pools.
+@since 5.6 *)
+| EV_C_ADOPT_MAJOR_HEAP_LARGE_BLOCKS
+(**
+Live blocks adopted into a Domain's major heap large allocations.
+@since 5.6 *)
+| EV_C_ADOPT_MAJOR_HEAP_WORDS
+(**
+Major heap size in {b words} adopted into a Domain.
+@since 5.6 *)
 
 (** The type for span events emitted by the runtime. *)
 type runtime_phase =

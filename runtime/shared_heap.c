@@ -102,6 +102,7 @@ struct caml_heap_state {
   caml_domain_state* owner;
 
   struct heap_stats stats;
+  struct heap_stats adopted_stats;
 };
 
 /* You need to hold the [pool_freelist] lock to call these functions. */
@@ -825,6 +826,39 @@ void caml_redarken_pool(struct pool* r, scanning_action f, void* fdata) {
   }
 }
 
+Caml_inline void caml_emit_orphan_heap_stats(const struct heap_stats local_stats[1])
+{
+  CAML_EV_COUNTER(EV_C_ORPHAN_MAJOR_HEAP_POOL_WORDS,
+                  (uintnat)local_stats->pool_words);
+  CAML_EV_COUNTER(EV_C_ORPHAN_MAJOR_HEAP_POOL_LIVE_WORDS,
+                  (uintnat)local_stats->pool_live_words);
+  CAML_EV_COUNTER(EV_C_ORPHAN_MAJOR_HEAP_LARGE_WORDS,
+                  (uintnat)local_stats->large_words);
+  CAML_EV_COUNTER(EV_C_ORPHAN_MAJOR_HEAP_POOL_FRAG_WORDS,
+                  (uintnat)(local_stats->pool_frag_words));
+  CAML_EV_COUNTER(EV_C_ORPHAN_MAJOR_HEAP_POOL_LIVE_BLOCKS,
+                  (uintnat)local_stats->pool_live_blocks);
+  CAML_EV_COUNTER(EV_C_ORPHAN_MAJOR_HEAP_LARGE_BLOCKS,
+                  (uintnat)local_stats->large_blocks);
+}
+
+void caml_emit_adopt_heap_stats(struct caml_heap_state* hs)
+{
+  struct heap_stats *local_stats = &hs->adopted_stats;
+  CAML_EV_COUNTER(EV_C_ADOPT_MAJOR_HEAP_POOL_WORDS,
+                  (uintnat)local_stats->pool_words);
+  CAML_EV_COUNTER(EV_C_ADOPT_MAJOR_HEAP_POOL_LIVE_WORDS,
+                  (uintnat)local_stats->pool_live_words);
+  CAML_EV_COUNTER(EV_C_ADOPT_MAJOR_HEAP_LARGE_WORDS,
+                  (uintnat)local_stats->large_words);
+  CAML_EV_COUNTER(EV_C_ADOPT_MAJOR_HEAP_POOL_FRAG_WORDS,
+                  (uintnat)(local_stats->pool_frag_words));
+  CAML_EV_COUNTER(EV_C_ADOPT_MAJOR_HEAP_POOL_LIVE_BLOCKS,
+                  (uintnat)local_stats->pool_live_blocks);
+  CAML_EV_COUNTER(EV_C_ADOPT_MAJOR_HEAP_LARGE_BLOCKS,
+                  (uintnat)local_stats->large_blocks);
+  memset(local_stats, 0, sizeof(*local_stats));
+}
 
 /* Heap and freelist stats */
 
@@ -832,6 +866,7 @@ void caml_redarken_pool(struct pool* r, scanning_action f, void* fdata) {
    You need to hold the [pool_freelist] lock. */
 static void orphan_heap_stats_with_lock(struct caml_heap_state *heap) {
   caml_accum_heap_stats(&pool_freelist.stats, &heap->stats);
+  caml_emit_orphan_heap_stats(&heap->stats);
   memset(&heap->stats, 0, sizeof(heap->stats));
 }
 
@@ -846,12 +881,16 @@ static void adopt_pool_stats_with_lock(
     calc_pool_stats(r, sz, &pool_stats);
     caml_accum_heap_stats(&adopter->stats, &pool_stats);
     caml_remove_heap_stats(&pool_freelist.stats, &pool_stats);
+    caml_accum_heap_stats(&adopter->adopted_stats, &pool_stats);
+    /* shouldn't emit the adopted stats here, too many events */
 }
 
 /* Move the stats of all orphan pools into the given heap.
    You need to hold the [pool_freelist] lock. */
 static void adopt_all_pool_stats_with_lock(struct caml_heap_state *adopter) {
   caml_accum_heap_stats(&adopter->stats, &pool_freelist.stats);
+  caml_accum_heap_stats(&adopter->adopted_stats, &pool_freelist.stats);
+  caml_emit_adopt_heap_stats(adopter);
   memset(&pool_freelist.stats, 0, sizeof(pool_freelist.stats));
 }
 

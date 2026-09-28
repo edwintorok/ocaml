@@ -1997,6 +1997,22 @@ struct cycle_callback_params {
 
 static atomic_bool can_cycle_all_domains;
 
+Caml_inline void caml_emit_heap_stats(const struct heap_stats local_stats[1])
+{
+  CAML_EV_COUNTER(EV_C_MAJOR_HEAP_POOL_WORDS,
+                  (uintnat)local_stats->pool_words);
+  CAML_EV_COUNTER(EV_C_MAJOR_HEAP_POOL_LIVE_WORDS,
+                  (uintnat)local_stats->pool_live_words);
+  CAML_EV_COUNTER(EV_C_MAJOR_HEAP_LARGE_WORDS,
+                  (uintnat)local_stats->large_words);
+  CAML_EV_COUNTER(EV_C_MAJOR_HEAP_POOL_FRAG_WORDS,
+                  (uintnat)(local_stats->pool_frag_words));
+  CAML_EV_COUNTER(EV_C_MAJOR_HEAP_POOL_LIVE_BLOCKS,
+                  (uintnat)local_stats->pool_live_blocks);
+  CAML_EV_COUNTER(EV_C_MAJOR_HEAP_LARGE_BLOCKS,
+                  (uintnat)local_stats->large_blocks);
+}
+
 static void stw_try_cycle_all_domains(
   caml_domain_state* domain, void* args,
   int participating_count,
@@ -2076,19 +2092,7 @@ static void stw_try_cycle_all_domains(
   struct heap_stats local_stats;
   caml_collect_heap_stats_sample(Caml_state->shared_heap, &local_stats);
 
-  CAML_EV_COUNTER(EV_C_MAJOR_HEAP_POOL_WORDS,
-                  (uintnat)local_stats.pool_words);
-  CAML_EV_COUNTER(EV_C_MAJOR_HEAP_POOL_LIVE_WORDS,
-                  (uintnat)local_stats.pool_live_words);
-  CAML_EV_COUNTER(EV_C_MAJOR_HEAP_LARGE_WORDS,
-                  (uintnat)local_stats.large_words);
-  CAML_EV_COUNTER(EV_C_MAJOR_HEAP_POOL_FRAG_WORDS,
-                  (uintnat)(local_stats.pool_frag_words));
-  CAML_EV_COUNTER(EV_C_MAJOR_HEAP_POOL_LIVE_BLOCKS,
-                  (uintnat)local_stats.pool_live_blocks);
-  CAML_EV_COUNTER(EV_C_MAJOR_HEAP_LARGE_BLOCKS,
-                  (uintnat)local_stats.large_blocks);
-
+  caml_emit_heap_stats(&local_stats);
   domain->sweeping_done = 0;
   domain->marking_done = 0;
 

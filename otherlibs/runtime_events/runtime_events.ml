@@ -47,6 +47,13 @@ type runtime_counter =
 | EV_C_MAJOR_DIRECT_ALLOCATED_WORDS
 | EV_C_MAJOR_SUSPENDED_ALLOCATED_WORDS
 | EV_C_MAJOR_RESUMED_ALLOCATED_WORDS
+| EV_C_GLOBAL_MAJOR_HEAP_POOL_WORDS
+| EV_C_GLOBAL_MAJOR_HEAP_POOL_LIVE_WORDS
+| EV_C_GLOBAL_MAJOR_HEAP_LARGE_WORDS
+| EV_C_GLOBAL_MAJOR_HEAP_POOL_FRAG_WORDS
+| EV_C_GLOBAL_MAJOR_HEAP_POOL_LIVE_BLOCKS
+| EV_C_GLOBAL_MAJOR_HEAP_LARGE_BLOCKS
+| EV_C_GLOBAL_MAJOR_HEAP_WORDS
 
 type runtime_phase =
 | EV_EXPLICIT_GC_SET
@@ -164,7 +171,20 @@ let runtime_counter_name counter =
       "major_suspended_allocated_words"
   | EV_C_MAJOR_RESUMED_ALLOCATED_WORDS ->
       "major_resumed_allocated_words"
-
+  | EV_C_GLOBAL_MAJOR_HEAP_POOL_WORDS ->
+      "global_major_heap_pool_words"
+  | EV_C_GLOBAL_MAJOR_HEAP_POOL_LIVE_WORDS ->
+      "global_major_heap_pool_live_words"
+  | EV_C_GLOBAL_MAJOR_HEAP_LARGE_WORDS ->
+      "global_major_heap_large_words"
+  | EV_C_GLOBAL_MAJOR_HEAP_POOL_FRAG_WORDS ->
+      "global_major_heap_pool_frag_words"
+  | EV_C_GLOBAL_MAJOR_HEAP_POOL_LIVE_BLOCKS ->
+      "global_major_heap_pool_live_blocks"
+  | EV_C_GLOBAL_MAJOR_HEAP_LARGE_BLOCKS ->
+      "global_major_heap_large_blocks"
+  | EV_C_GLOBAL_MAJOR_HEAP_WORDS ->
+      "global_major_heap_words"
 
 let runtime_phase_name phase =
   match phase with

@@ -223,6 +223,39 @@ last major slice. Work suspended during a ramp-up phase and never resumed is
 never collected against.
 @since 5.6
 *)
+| EV_C_GLOBAL_MAJOR_HEAP_POOL_WORDS
+(**
+Total {b words} orphaned from all terminated domains' major heap.
+These will get adopted as needed by other domains.
+This is the sum of unallocated and live words in each pool.
+@since 5.6 *)
+| EV_C_GLOBAL_MAJOR_HEAP_POOL_LIVE_WORDS
+(**
+Current live {b words} orphaned from all terminated domains' major heap pools.
+@since 5.6 *)
+| EV_C_GLOBAL_MAJOR_HEAP_LARGE_WORDS
+(**
+Total {b words} orphaned from all terminated domains' major heap large allocations.
+A large allocation is an allocation larger than the largest sized pool.
+@since 5.6 *)
+| EV_C_GLOBAL_MAJOR_HEAP_POOL_FRAG_WORDS
+(**
+Words orphaned from all terminated domains' major heap pools lost to fragmentation.
+This is due to there not being a pool with the exact size of an allocation and a larger sized
+pool needing to be used.
+@since 5.6 *)
+| EV_C_GLOBAL_MAJOR_HEAP_POOL_LIVE_BLOCKS
+(**
+Live blocks orphaned from all terminated domains' major heap pools.
+@since 5.6 *)
+| EV_C_GLOBAL_MAJOR_HEAP_LARGE_BLOCKS
+(**
+Live blocks orphaned from all terminated domains' major heap large allocations.
+@since 5.6 *)
+| EV_C_GLOBAL_MAJOR_HEAP_WORDS
+(**
+Major heap size in {b words} of all terminated domains' major heap.
+@since 5.6 *)
 
 (** The type for span events emitted by the runtime. *)
 type runtime_phase =

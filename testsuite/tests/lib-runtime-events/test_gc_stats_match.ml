@@ -54,6 +54,7 @@ type gc_stats = {
   mutable major_words : int;
   mutable minor_collections : int;
   mutable major_collections : int;
+  mutable heap_words : int;
 }
 
 type event_stats = {
@@ -62,6 +63,7 @@ type event_stats = {
   mutable ev_major_words : int;
   mutable ev_minor_collections : int;
   mutable ev_major_collections : int;
+  mutable ev_heap_words: int;
 }
 
 (* Parse v=0x400 output format: "name: value" *)
@@ -72,6 +74,7 @@ let parse_gc_stats lines =
     major_words = 0;
     minor_collections = 0;
     major_collections = 0;
+    heap_words = 0;
   } in
   List.iter (fun line ->
     match String.split_on_char ':' line with
@@ -86,6 +89,7 @@ let parse_gc_stats lines =
           | "major_words" -> stats.major_words <- value
           | "minor_collections" -> stats.minor_collections <- value
           | "major_collections" -> stats.major_collections <- value
+          | "heap_words" -> stats.heap_words <- value
           | _ -> ()
         with Failure _ -> ())
     | _ -> ()
@@ -152,6 +156,7 @@ let run_and_check ~exact child_prog cwd label runparam =
     ev_major_words = 0;
     ev_minor_collections = 0;
     ev_major_collections = 0;
+    ev_heap_words = 0;
   } in
 
   let runtime_counter _domain_id _ts counter value =
@@ -163,6 +168,9 @@ let run_and_check ~exact child_prog cwd label runparam =
         ev.ev_promoted_words <- ev.ev_promoted_words + value
     | EV_C_MAJOR_ALLOCATED_WORDS ->
         ev.ev_major_words <- ev.ev_major_words + value
+    | EV_C_MAJOR_HEAP_WORDS ->
+        (* absolute value *)
+        ev.ev_heap_words <- value
     | _ -> ()
   in
 
@@ -217,6 +225,7 @@ let run_and_check ~exact child_prog cwd label runparam =
          ev.ev_minor_collections
     && check "major_collections" gc_stats.major_collections
          ev.ev_major_collections
+    && check "heap_words" gc_stats.heap_words ev.ev_heap_words
   in
 
   if not ok then begin
@@ -226,12 +235,14 @@ let run_and_check ~exact child_prog cwd label runparam =
     Printf.printf "  major_words=%d\n" gc_stats.major_words;
     Printf.printf "  minor_collections=%d\n" gc_stats.minor_collections;
     Printf.printf "  major_collections=%d\n" gc_stats.major_collections;
+    Printf.printf "  heap_words=%d\n" gc_stats.heap_words;
     Printf.printf "\n[%s] Runtime events:\n" label;
     Printf.printf "  minor_words=%d\n" ev.ev_minor_words;
     Printf.printf "  promoted_words=%d\n" ev.ev_promoted_words;
     Printf.printf "  major_words=%d\n" ev.ev_major_words;
     Printf.printf "  minor_collections=%d\n" ev.ev_minor_collections;
-    Printf.printf "  major_collections=%d\n" ev.ev_major_collections
+    Printf.printf "  major_collections=%d\n" ev.ev_major_collections;
+    Printf.printf "  heap_words=%d\n" ev.ev_heap_words
   end;
   ok
 

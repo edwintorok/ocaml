@@ -14,7 +14,7 @@
    program = "${test_build_directory}/test_gc_stats_match.byte";
    all_modules = "test_gc_stats_match.ml";
    ocamlc.byte;
-   arguments = "${test_build_directory}/gc_stats_child.byte";
+   arguments = "${test_build_directory}/gc_stats_child.byte 0";
    run;
    check-program-output;
  } {
@@ -25,7 +25,30 @@
    program = "${test_build_directory}/test_gc_stats_match.exe";
    all_modules = "test_gc_stats_match.ml";
    ocamlopt.byte;
-   arguments = "${test_build_directory}/gc_stats_child.exe";
+   arguments = "${test_build_directory}/gc_stats_child.exe 0";
+   run;
+   check-program-output;
+ }
+ {
+   setup-ocamlc.byte-build-env;
+   program = "${test_build_directory}/gc_stats_child.byte";
+   all_modules = "gc_stats_child.ml";
+   ocamlc.byte;
+   program = "${test_build_directory}/test_gc_stats_match.byte";
+   all_modules = "test_gc_stats_match.ml";
+   ocamlc.byte;
+   arguments = "${test_build_directory}/gc_stats_child.byte 2";
+   run;
+   check-program-output;
+ } {
+   setup-ocamlopt.byte-build-env;
+   program = "${test_build_directory}/gc_stats_child.exe";
+   all_modules = "gc_stats_child.ml";
+   ocamlopt.byte;
+   program = "${test_build_directory}/test_gc_stats_match.exe";
+   all_modules = "test_gc_stats_match.ml";
+   ocamlopt.byte;
+   arguments = "${test_build_directory}/gc_stats_child.exe 2";
    run;
    check-program-output;
  }
@@ -66,6 +89,15 @@ type event_stats = {
   mutable ev_heap_words: int;
 }
 
+let sum_ev a b =
+  { ev_minor_words = a.ev_minor_words + b.ev_minor_words
+  ; ev_promoted_words = a.ev_promoted_words + b.ev_promoted_words
+  ; ev_major_words = a.ev_major_words + b.ev_major_words
+  ; ev_minor_collections = a.ev_minor_collections + b.ev_minor_collections
+  ; ev_major_collections = a.ev_major_collections + b.ev_major_collections
+  ; ev_heap_words = a.ev_heap_words + b.ev_heap_words
+  }
+
 (* Parse v=0x400 output format: "name: value" *)
 let parse_gc_stats lines =
   let stats = {
@@ -105,11 +137,13 @@ let read_all_lines ic =
   with End_of_file -> ());
   List.rev !lines
 
+let sum = Array.fold_left (+) 0
+
 (* Run [child_prog] with the given OCAMLRUNPARAM and check that the v=0x400 GC
    statistics printed on its stderr match the runtime events counters it
    records. [label] identifies the configuration in failure messages. Returns
    [true] on an exact match. *)
-let run_and_check ~exact child_prog cwd label runparam =
+let run_and_check ~exact child_prog domains cwd label runparam =
   (* Run the child program and capture its stderr (v=0x400 output) *)
   let (stderr_read, stderr_write) = Unix.pipe () in
   let pid = Unix.fork () in
@@ -125,7 +159,7 @@ let run_and_check ~exact child_prog cwd label runparam =
       not (String.length s >= 14 && String.sub s 0 14 = "OCAMLRUNPARAM=")
     ) env in
     let env = ("OCAMLRUNPARAM=" ^ runparam) :: env in
-    Unix.execve child_prog [| child_prog |] (Array.of_list env)
+    Unix.execve child_prog [| child_prog; domains |] (Array.of_list env)
   end;
 
   (* Parent *)
@@ -150,7 +184,7 @@ let run_and_check ~exact child_prog cwd label runparam =
   end;
 
   let cursor = Runtime_events.create_cursor (Some (cwd, pid)) in
-  let ev = {
+  let ev_empty _ = {
     ev_minor_words = 0;
     ev_promoted_words = 0;
     ev_major_words = 0;
@@ -158,9 +192,11 @@ let run_and_check ~exact child_prog cwd label runparam =
     ev_major_collections = 0;
     ev_heap_words = 0;
   } in
+  let ev = Array.init 128 ev_empty in
 
-  let runtime_counter _domain_id _ts counter value =
+  let runtime_counter domain_id _ts counter value =
     let open Runtime_events in
+    let ev = ev.(domain_id) in
     match counter with
     | EV_C_MINOR_ALLOCATED_WORDS ->
         ev.ev_minor_words <- ev.ev_minor_words + value
@@ -174,8 +210,9 @@ let run_and_check ~exact child_prog cwd label runparam =
     | _ -> ()
   in
 
-  let runtime_end _domain_id _ts phase =
+  let runtime_end domain_id _ts phase =
     let open Runtime_events in
+    let ev = ev.(domain_id) in
     match phase with
     | EV_MINOR ->
         ev.ev_minor_collections <- ev.ev_minor_collections + 1
@@ -184,9 +221,18 @@ let run_and_check ~exact child_prog cwd label runparam =
     | _ -> ()
   in
 
+  let lifecycle domain_id _ lifecycle _ =
+    let open Runtime_events in
+    match lifecycle with
+    | EV_DOMAIN_TERMINATE ->
+        ev.(domain_id) <- ev_empty ()
+    | _ -> ()
+  in
+
   let callbacks = Runtime_events.Callbacks.create
     ~runtime_counter
     ~runtime_end
+    ~lifecycle
     ()
   in
 
@@ -210,12 +256,14 @@ let run_and_check ~exact child_prog cwd label runparam =
   let check name gc_val ev_val =
     let ok = if exact then gc_val = ev_val else ev_val >= gc_val in
     if not ok then begin
-      Printf.printf "MISMATCH [%s] %s: v=0x400=%d events=%d\n"
-        label name gc_val ev_val;
+      Printf.printf "MISMATCH [%s %s] %s: v=0x400=%d events=%d\n"
+        label domains name gc_val ev_val;
       false
     end else
       true
   in
+
+  let ev = Array.fold_left sum_ev (ev_empty ()) ev in
 
   let ok =
     check "minor_words" gc_stats.minor_words ev.ev_minor_words
@@ -247,20 +295,21 @@ let run_and_check ~exact child_prog cwd label runparam =
   ok
 
 let () =
-  if Array.length Sys.argv < 2 then begin
-    Printf.eprintf "Usage: %s <child_program>\n" Sys.argv.(0);
+  if Array.length Sys.argv < 3 then begin
+    Printf.eprintf "Usage: %s <child_program> <domains>\n" Sys.argv.(0);
     exit 2
   end;
 
   let child_prog = Sys.argv.(1) in
+  let domains = Sys.argv.(2) in
   let cwd = Sys.getcwd () in
 
   (* Check both the default runtime shutdown and the cleanup_on_exit (c=1)
      shutdown; the counters must match the printed stats in both cases. *)
   let ok_default =
-    run_and_check ~exact:true child_prog cwd "default" "v=0x400" in
+    run_and_check ~exact:true child_prog domains cwd "default" "v=0x400" in
   let ok_cleanup =
-    run_and_check ~exact:false child_prog cwd "cleanup_on_exit" "v=0x400,c=1" in
+    run_and_check ~exact:false child_prog domains cwd "cleanup_on_exit" "v=0x400,c=1" in
 
   if ok_default && ok_cleanup then
     Printf.printf "OK\n"

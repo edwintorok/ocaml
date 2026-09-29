@@ -5,7 +5,7 @@
    With OCAML_RUNTIME_EVENTS_START=1, runtime events are enabled from startup.
    The parent compares the v=0x400 stats with runtime event counters. *)
 
-let () =
+let run () =
   (* Do allocation that triggers multiple minor GCs *)
   let r = ref [] in
   for _ = 1 to 100 do
@@ -14,10 +14,19 @@ let () =
     done;
     Gc.minor ()
   done;
+  !r
+
+let () =
+  let extra_domains = Sys.argv.(1) |> int_of_string in
+
+  let domains = List.init extra_domains (fun _ -> Domain.spawn run) in
+
+  let r = run () in
+  let alive = r :: List.map Domain.join domains in
 
   (* Do a major GC *)
   Gc.full_major ();
 
   (* Keep data alive until exit *)
-  let _ = Sys.opaque_identity !r in
+  let _ = Sys.opaque_identity alive in
   ()

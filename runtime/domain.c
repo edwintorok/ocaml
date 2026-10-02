@@ -2351,13 +2351,6 @@ void caml_domain_terminate(bool last)
     caml_plat_unlock(&all_domains_lock);
   }
 
-  if (last) {
-    /* Tear down here rather than in [caml_do_exit]: the collections above
-       have finished emitting, and this domain is still a stop-the-world
-       participant, which [caml_runtime_events_destroy] requires. */
-    CAML_RUNTIME_EVENTS_DESTROY();
-  }
-
   if (!last) caml_assert_shared_heap_is_empty(domain_state->shared_heap);
 
   /* [domain_state] may be reused by a fresh domain here, now that we
@@ -2397,12 +2390,19 @@ void caml_domain_terminate(bool last)
   }
   caml_assert_shared_heap_is_empty(domain_state->shared_heap);
 
+  caml_orphan_alloc_stats(domain_state);
+  if (last) {
+    /* Tear down here rather than in [caml_do_exit]: the collections above
+       have finished emitting, and this domain is still a stop-the-world
+       participant, which [caml_runtime_events_destroy] requires. */
+    CAML_RUNTIME_EVENTS_DESTROY();
+  }
+
   caml_free_shared_heap(domain_state->shared_heap);
   domain_state->shared_heap = NULL;
   caml_free_minor_tables(domain_state->minor_tables);
   domain_state->minor_tables = NULL;
 
-  caml_orphan_alloc_stats(domain_state);
   /* At this point, the stats of the domain must be empty.
      - heap stats were orphaned by [caml_orphan_shared_heap]
      - alloc stats were orphaned by [caml_orphan_alloc_stats]

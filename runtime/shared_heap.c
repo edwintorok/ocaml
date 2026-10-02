@@ -841,6 +841,8 @@ static void emit_global_heap_stats_with_lock(void)
                   (uintnat)global_stats.pool_live_blocks);
   CAML_EV_COUNTER(EV_C_GLOBAL_MAJOR_HEAP_LARGE_BLOCKS,
                   (uintnat)global_stats.large_blocks);
+  CAML_EV_COUNTER(EV_C_GLOBAL_MAJOR_HEAP_WORDS,
+                  (uintnat)global_stats.pool_words + global_stats.large_words);
 }
 
 /* Move the given heap stats to the orphan pools.

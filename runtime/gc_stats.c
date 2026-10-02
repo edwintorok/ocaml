@@ -19,6 +19,7 @@
 #include "caml/memory.h"
 #include "caml/minor_gc.h"
 #include "caml/platform.h"
+#include "caml/runtime_events.h"
 #include "caml/shared_heap.h"
 #include "caml/startup_aux.h"
 
@@ -97,6 +98,10 @@ void caml_orphan_alloc_stats(caml_domain_state *domain) {
   /* move alloc stats from the domain to [alloc_stats] */
   caml_collect_alloc_stats_sample(domain, &alloc_stats);
   caml_reset_domain_alloc_stats(domain);
+
+  CAML_EV_COUNTER(EV_C_MINOR_ALLOCATED_WORDS, alloc_stats.minor_words);
+  CAML_EV_COUNTER(EV_C_MINOR_PROMOTED_WORDS, alloc_stats.promoted_words);
+  CAML_EV_COUNTER(EV_C_MAJOR_ALLOCATED_WORDS, alloc_stats.major_words);
 
   /* push them into the orphan stats */
   /* This is called from the collector as well as from the mutator. */

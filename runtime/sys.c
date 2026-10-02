@@ -140,9 +140,11 @@ CAMLexport void caml_do_exit(int retcode)
 
   /* Report minor heap allocations. With [cleanup_on_exit] the collection in
      [caml_domain_terminate] reports them instead. */
-  if (!caml_params->cleanup_on_exit)
+  if (!caml_params->cleanup_on_exit) {
     caml_ev_minor_allocated((uintnat)domain_state->young_end
                             - (uintnat)domain_state->young_ptr);
+    CAML_EV_COUNTER(EV_C_MAJOR_ALLOCATED_WORDS, domain_state->allocated_words);
+  }
 
   if ((atomic_load_relaxed(&caml_verb_gc) & CAML_GC_MSG_STATS) != 0) {
     caml_compute_gc_stats(&s);

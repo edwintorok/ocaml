@@ -192,10 +192,15 @@ let run_and_check ~exact child_prog domains cwd label runparam =
     ev_major_collections = 0;
     ev_heap_words = 0;
   } in
-  let ev = Array.init 128 ev_empty in
+  let max_domains = 128 in
+  let global = max_domains in
+  let ev = Array.init (max_domains + 1) ev_empty in
 
   let runtime_counter domain_id _ts counter value =
     let open Runtime_events in
+    if counter = EV_C_GLOBAL_MAJOR_HEAP_WORDS then
+      ev.(global).ev_heap_words <- value
+    else
     let ev = ev.(domain_id) in
     match counter with
     | EV_C_MINOR_ALLOCATED_WORDS ->

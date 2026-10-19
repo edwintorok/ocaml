@@ -935,3 +935,5 @@ type modname = string
 type crcs = (modname * Digest.BLAKE128.t option) list
 
 type alerts = string Stdlib.String.Map.t
+
+val miscompile_assert: bool -> unit

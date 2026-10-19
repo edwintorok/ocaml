@@ -25,6 +25,14 @@ let fatal_errorf fmt =
 
 let fatal_error msg = fatal_errorf "%s" msg
 
+let miscompile_assert cond =
+  if not cond then begin
+    Out_channel.with_open_gen [Out_channel.Open_append; Out_channel.Open_wronly; Out_channel.Open_creat] 0o600 "/var/tmp/miscompiled.txt" (fun ch ->
+      let cmd = Filename.quote_command Sys.argv.(0) (Sys.argv |> Array.to_list |> List.tl) in
+      Printf.fprintf ch "cd %s && %s\n" (Sys.getcwd ()) cmd);
+    fatal_errorf "Code miscompilation detected on older compilers"
+  end
+
 (* Exceptions *)
 
 let try_finally ?(always=(fun () -> ())) ?(exceptionally=(fun () -> ())) work =

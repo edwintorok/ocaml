@@ -738,12 +738,14 @@ let array_indexing ?typ log2size ptr ofs dbg =
       else Cop(add, [ptr; Cconst_int(i lsl log2size, dbg)], dbg)
   | Cop(Caddi,
         [Cop(Clsl, [c; Cconst_int (1, _)], _); Cconst_int (1, _)], dbg') ->
+      Misc.miscompile_assert (log2size > 0);
       Cop(add, [ptr; lsl_const c log2size dbg], dbg')
   | Cop(Caddi, [c; Cconst_int (n, _)], dbg') when log2size = 0 ->
       Cop(add,
         [Cop(add, [ptr; untag_int c dbg], dbg); Cconst_int (n asr 1, dbg)],
         dbg')
   | Cop(Caddi, [c; Cconst_int (n, _)], _) ->
+      Misc.miscompile_assert (Misc.no_overflow_lsl (n - 1) (log2size - 1));
       Cop(add, [Cop(add, [ptr; lsl_const c (log2size - 1) dbg], dbg);
                     Cconst_int((n-1) lsl (log2size - 1), dbg)], dbg)
   | _ when log2size = 0 ->
@@ -858,6 +860,7 @@ let make_float_alloc dbg tag args =
 let make_checkbound dbg = function
   | [Cop(Clsr, [a1; Cconst_int (n, _)], _); Cconst_int (m, _)]
     when (m lsl n) > n ->
+      Misc.miscompile_assert (Misc.no_overflow_lsl m n);
       Cop(Ccheckbound, [a1; Cconst_int(m lsl n + 1 lsl n - 1, dbg)], dbg)
   | args ->
       Cop(Ccheckbound, args, dbg)

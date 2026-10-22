@@ -1145,6 +1145,30 @@ static void compact_update_ephe_list(volatile value *ephe_p)
   }
 }
 
+void caml_quick_compact(void)
+{
+  pool* cur_pool;
+  pool* next_pool;
+
+  caml_gc_log("Compacting pool freelist start");
+  do {
+    caml_plat_lock_blocking(&pool_freelist.lock);
+    cur_pool = pool_freelist.free;
+
+    while( cur_pool ) {
+      next_pool = cur_pool->next;
+      /* No stats to update so just unmap */
+      caml_mem_unmap(cur_pool, Bsize_wsize(POOL_WSIZE));
+      cur_pool = next_pool;
+    }
+
+    pool_freelist.free = NULL;
+
+    caml_plat_unlock(&pool_freelist.lock);
+  } while(0);
+  caml_gc_log("Compacting pool freelist end");
+}
+
 /* Compact the heap for the given domain. Run in parallel for all domains. */
 
 void caml_compact_heap(caml_domain_state* domain_state,
@@ -1513,23 +1537,7 @@ void caml_compact_heap(caml_domain_state* domain_state,
 
   /* Fourth phase: one domain also needs to release the free list */
   if( participants[0] == Caml_state ) {
-    pool* cur_pool;
-    pool* next_pool;
-
-    caml_plat_lock_blocking(&pool_freelist.lock);
-    cur_pool = pool_freelist.free;
-
-    while( cur_pool ) {
-      next_pool = cur_pool->next;
-      /* No stats to update so just unmap */
-      caml_mem_unmap(cur_pool, Bsize_wsize(POOL_WSIZE));
-      cur_pool = next_pool;
-    }
-
-    pool_freelist.free = NULL;
-
-    caml_plat_unlock(&pool_freelist.lock);
-
+    caml_quick_compact();
     /* We are done, increment our compaction count */
     atomic_fetch_add(&caml_compactions_count, 1);
   }

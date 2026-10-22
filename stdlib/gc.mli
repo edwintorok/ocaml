@@ -317,6 +317,10 @@ external full_major : unit -> unit = "caml_gc_full_major"
    and perform a complete new cycle.  This will collect all currently
    unreachable blocks. *)
 
+external quick_compact : unit -> unit = "caml_gc_quick_compaction"
+(** Compact the global pool freelist. This does not perform a major collection,
+    and doesn't traverse the OCaml heap. *)
+
 external compact : unit -> unit = "caml_gc_compaction"
 (** Perform a full major collection and compact the heap.  Note that heap
    compaction is a lengthy operation. *)

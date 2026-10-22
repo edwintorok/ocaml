@@ -296,6 +296,15 @@ CAMLprim value caml_gc_major_slice (value v)
   return caml_get_value_or_raise(result);
 }
 
+CAMLprim value caml_gc_quick_compaction(value v)
+{
+  Caml_check_caml_state();
+  CAMLassert (v == Val_unit);
+  caml_result result = Result_unit;
+  caml_quick_compact();
+  return caml_get_value_or_raise(result);
+}
+
 CAMLprim value caml_gc_compaction(value v)
 {
   Caml_check_caml_state();

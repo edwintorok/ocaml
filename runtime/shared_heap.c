@@ -241,6 +241,9 @@ static pool* pool_acquire(struct caml_heap_state* local) {
       r->owner = NULL;
       pool_freelist.free = r;
     }
+  } else {
+    pool_freelist.stats.pool_words -= POOL_WSIZE;
+    pool_freelist.stats.pool_frag_words -= POOL_HEADER_WSIZE + wastage_sizeclass[pool_freelist.free->sz];
   }
   r = pool_freelist.free;
   if (r)
@@ -263,6 +266,8 @@ static void pool_release(struct caml_heap_state* local,
   caml_plat_lock_blocking(&pool_freelist.lock);
   pool->next = pool_freelist.free;
   pool_freelist.free = pool;
+  pool_freelist.stats.pool_words += POOL_WSIZE;
+  pool_freelist.stats.pool_frag_words += POOL_HEADER_WSIZE + wastage_sizeclass[sz];
   caml_plat_unlock(&pool_freelist.lock);
 }
 
@@ -1157,7 +1162,8 @@ void caml_quick_compact(void)
 
     while( cur_pool ) {
       next_pool = cur_pool->next;
-      /* No stats to update so just unmap */
+      pool_freelist.stats.pool_words -= POOL_WSIZE;
+      pool_freelist.stats.pool_frag_words -= POOL_HEADER_WSIZE + wastage_sizeclass[cur_pool->sz];
       caml_mem_unmap(cur_pool, Bsize_wsize(POOL_WSIZE));
       cur_pool = next_pool;
     }

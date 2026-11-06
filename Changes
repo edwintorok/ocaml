@@ -43,6 +43,9 @@ Working version
 - #14571: Faster minor GC.
   (Nick Barnes, review by Damien Doligez).
 
+- #NNNNN: implement ASAN redzones for the runtime events ring buffer
+  (Edwin Török, review by)
+
 ### Code generation and optimizations:
 
 - #14980: Emit direct assembly for `Atomic.exchange` and
@@ -103,6 +106,10 @@ Working version
 - #15216: document the security issue reporting process with a SECURITY.md file
   (Edwin Török, suggested by Xavier Leroy, review by Xavier Leroy)
 
+- #15422: document that `Runtime_events.cursor` uses memory mappings and shares
+    `Unix.map_file`'s limitations.
+  (Edwin Török, review by)
+
 ### Compiler user-interface and warnings:
 
 - #15144: Further improvement on typing error messages for Duplicate_constructor
@@ -135,6 +142,9 @@ Working version
 - #15201: Fix make -j hanging when rebuilding an already-built tree with
   GNU Make 3.81, the default make shipped on macOS.
   (Tim McGilchrist, review by Miod Vallat and David Allsopp)
+
+- #15384: set use_sigaltstack=0,detect_stack_use_after_return=0 in ASAN_OPTIONS
+  (Edwin Török, report by Ali Caglayan, review by)
 
 ### Bug fixes:
 
@@ -223,12 +233,7 @@ Working version
   of a C int.
   (Sora Morimoto, review by Olivier Nicole)
 
-* #15421: `max_option=Some n` in `Runtime_events.read_poll` allowed `2n+1`
-  events. And `Some 0` was treated the same as `None` (unlimited),
-  instead it now only checks the cursor and returns. Negative `max_option`
-  values are rejected with `Invalid_argument`. User `Type.unit` events are
-  now counted.
-  (Edwin Török, report by KC Sivaramakrishnan, review by)
+TODO: fix conflicts here
 
 OCaml 5.6.0
 -----------

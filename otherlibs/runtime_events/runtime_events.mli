@@ -759,7 +759,7 @@ val start : unit -> unit
 
 val path : unit -> string option
 (** If runtime events are being collected, [path ()] returns [Some p] where [p]
-  is a path to the runtime events file. Otherwise, it returns None.
+  is an absolute path to the runtime events file. Otherwise, it returns None.
 
   @since 5.3 *)
 
@@ -784,7 +784,13 @@ val create_cursor : (string * int) option -> cursor
    [path_pid] is None then a cursor is created for the current process.
    Otherwise the pair contains a string [path] to the directory that contains
    the [pid].events file and int [pid] for the runtime_events of an
-   external process to monitor. *)
+   external process to monitor.
+
+   Cursors use memory mappings, and thus share the same limitations as
+   {!val:Unix.map_file}: a SIGBUS could be raised if the file is shrunk
+   while {!val:read_poll} is running.
+   This is true even when [path_pid] is [None]: a file is still mapped.
+*)
 
 val free_cursor : cursor -> unit
 (** Free a previously created runtime_events cursor. *)

@@ -24,6 +24,8 @@
 #include "caml/osdeps.h"
 #include "caml/platform.h"
 #include "caml/startup_aux.h"
+#include "caml/sys.h"
+#include "misc_internals.h"
 
 #include <assert.h>
 #include <fcntl.h>
@@ -177,9 +179,7 @@ static void runtime_events_teardown_from_stw_single(int remove_file) {
       DeleteFile(current_ring_loc);
     }
 #else
-    /* This cast is necessary for compatibility with Illumos' non-POSIX
-      mmap/munmap */
-    munmap((void*)current_metadata, current_ring_total_size);
+    caml_munmap(current_metadata, current_ring_total_size);
 
     if( remove_file ) {
       unlink(current_ring_loc);
@@ -249,6 +249,40 @@ void caml_runtime_events_destroy(void) {
   }
 }
 
+/* Returns a `caml_stat` allocated path.
+ * Depending on the platform it may resolve symlinks
+ */
+static char_os* abspath(const char_os *dir)
+{
+  if (!dir)
+    dir = T(".");
+#ifdef _WIN32
+  char_os *out;
+  DWORD len = GetFullPathName(dir, 0, NULL, NULL);
+  if (!len)
+    return NULL;
+  out = caml_stat_alloc(len * sizeof(char_os));
+  DWORD ret = GetFullPathName(dir, len, out, NULL);
+  if (!ret || ret >= len) {
+    caml_stat_free(out);
+    return NULL;
+  }
+  return out;
+#else
+  /* realpath seems like the better option here,
+   * but what if it fails, or is not available? */
+  if (Is_separator(dir[0]))
+    return caml_stat_strdup(dir); /* already an absolute path */
+  /* matches caml_sys_getcwd, PATH_MAX may be -1 if it is unbounded. */
+  char cwd[4096];
+  if (!getcwd(cwd, countof(cwd)))
+    return NULL;
+  if (dir[0] == '.' && dir[1] == '\0')
+    return caml_stat_strdup(cwd); /* avoid cwd/./%d.events */
+  return caml_stat_strconcat(3, cwd, "/", dir);
+#endif
+}
+
 /* Create the initial runtime_events ring buffers. This must be called from
   within a stop-the-world section if we cannot be sure there is only a single
   domain running. */
@@ -256,6 +290,7 @@ static void runtime_events_create_from_stw_single(void) {
   /* Don't initialise runtime_events twice */
   if (!atomic_load_acquire(&runtime_events_enabled)) {
     size_t ring_headers_length, ring_data_length;
+    char_os *dir;
 #ifdef _WIN32
     DWORD pid = GetCurrentProcessId();
 #else
@@ -265,26 +300,25 @@ static void runtime_events_create_from_stw_single(void) {
 
     int path_len, err;
 
-    if (runtime_events_path) {
-      path_len = snprintf_os(NULL, 0, T("%s/%ld.events"),
-                             runtime_events_path, pid);
-    } else {
-      path_len = snprintf_os(NULL, 0, T("%ld.events"), pid);
-    }
+    dir = abspath(runtime_events_path);
+    if (!dir)
+      caml_fatal_error("runtime_events: cannot look up absolute path for: %s",
+                       runtime_events_path
+                       ? caml_stat_strdup_of_os(runtime_events_path) : ".");
+
+    path_len = snprintf_os(NULL, 0, T("%s/%ld.events"),
+                             dir, pid);
     if (path_len < 0) {
+      caml_stat_free(dir);
       caml_fatal_error("runtime_events: cannot format the ring buffer path");
     }
 
     /* The length is in char_os, which is wider than a byte on Windows. */
     current_ring_loc = caml_stat_alloc((path_len + 1) * sizeof(char_os));
 
-    if (runtime_events_path) {
-      err = snprintf_os(current_ring_loc, path_len + 1,
-                        T("%s/%ld.events"), runtime_events_path, pid);
-    } else {
-      err = snprintf_os(current_ring_loc, path_len + 1,
-                        T("%ld.events"), pid);
-    }
+    err = snprintf_os(current_ring_loc, path_len + 1,
+                      T("%s/%ld.events"), dir, pid);
+    caml_stat_free(dir);
     if (err != path_len) {
       caml_fatal_error("runtime_events: cannot format the ring buffer path");
     }
@@ -354,13 +388,26 @@ static void runtime_events_create_from_stw_single(void) {
     if( current_metadata == NULL ) {
       caml_fatal_error("failed to map view of file");
     }
-#else
-    ring_fd =
-        open(current_ring_loc, O_RDWR | O_CREAT, (S_IRUSR | S_IWUSR));
 
-    if (ring_fd < 0) {
-      caml_fatal_error("Couldn't open ring buffer loc: %s",
-                        current_ring_loc);
+#else
+
+    {
+      char buf[1024];
+      if (unlink(current_ring_loc) < 0 && ENOENT != errno) {
+        caml_fatal_error("Couldn't remove stale ring buffer file \"%s\": %s",
+                         current_ring_loc,
+                         caml_strerror(errno, buf, sizeof(buf)));
+      }
+
+      ring_fd =
+          open(current_ring_loc, O_RDWR | O_CREAT | O_EXCL,
+               (S_IRUSR | S_IWUSR));
+
+      if (ring_fd < 0) {
+        caml_fatal_error("Couldn't open ring buffer loc: \"%s\": %s",
+                         current_ring_loc,
+                         caml_strerror(errno, buf, sizeof(buf)));
+      }
     }
 
     ret = ftruncate(ring_fd, current_ring_total_size);
@@ -369,11 +416,9 @@ static void runtime_events_create_from_stw_single(void) {
       caml_fatal_error("Can't resize ring buffer");
     }
 
-    /* This cast is necessary for compatibility with Illumos' non-POSIX
-      mmap/munmap */
-    current_metadata = (struct runtime_events_metadata_header*)
-                        mmap(NULL, current_ring_total_size,
-                            PROT_READ | PROT_WRITE, MAP_SHARED, ring_fd, 0);
+    current_metadata =
+      caml_mmap(NULL, current_ring_total_size,
+                PROT_READ | PROT_WRITE, MAP_SHARED, ring_fd, 0);
 
     if (current_metadata == MAP_FAILED) {
       caml_fatal_error("Unable to mmap ring buffer");
@@ -759,11 +804,24 @@ void events_register_write_buffer(int idx, value event_name) {
           RUNTIME_EVENTS_CUSTOM_EVENT_ID_LENGTH - 1);
 }
 
-CAMLprim value caml_runtime_events_user_register(value event_name,
+static caml_result runtime_events_user_register(value event_name,
   value event_tag, value event_type)
 {
   CAMLparam3(event_name, event_tag, event_type);
   CAMLlocal2(list_item, event);
+
+  int length = caml_string_length(event_name);
+  if (length > RUNTIME_EVENTS_CUSTOM_EVENT_ID_LENGTH - 1) {
+    event = caml_exception_invalid_argument(
+      "Runtime_events.User.register: maximum length for event name exceeded");
+    CAMLreturnT(caml_result, Result_exception(event));
+  }
+
+  if (!caml_string_is_c_safe(event_name)) {
+    event = caml_exception_invalid_argument(
+      "Runtime_events.User.register: event name has null characters");
+    CAMLreturnT(caml_result, Result_exception(event));
+  }
 
   uintnat index = atomic_fetch_add(&runtime_custom_event_index, 1);
 
@@ -772,19 +830,9 @@ CAMLprim value caml_runtime_events_user_register(value event_name,
        an id. */
     atomic_store_relaxed(&runtime_custom_event_index,
                          RUNTIME_EVENTS_MAX_CUSTOM_EVENTS);
-    caml_invalid_argument(
+    event = caml_exception_invalid_argument(
       "Runtime_events.User.register: maximum number of custom events exceeded");
-  }
-
-  int length = caml_string_length(event_name);
-  if (length > RUNTIME_EVENTS_CUSTOM_EVENT_ID_LENGTH - 1) {
-    caml_invalid_argument(
-      "Runtime_events.User.register: maximum length for event name exceeded");
-  }
-
-  if (!caml_string_is_c_safe(event_name)) {
-    caml_invalid_argument(
-      "Runtime_events.User.register: event name has null characters");
+    CAMLreturnT(caml_result, Result_exception(event));
   }
 
   // type 'a t = {
@@ -822,7 +870,15 @@ CAMLprim value caml_runtime_events_user_register(value event_name,
   // end critical section
   caml_plat_unlock(&user_events_lock);
 
-  CAMLreturn(event);
+  CAMLreturnT(caml_result, Result_value(event));
+}
+
+CAMLprim value caml_runtime_events_user_register(value event_name,
+  value event_tag, value event_type)
+{
+  caml_result res =
+    runtime_events_user_register(event_name, event_tag, event_type);
+  return caml_get_value_or_raise(res);
 }
 
 CAMLprim value caml_runtime_events_user_write(
@@ -929,7 +985,7 @@ CAMLprim value caml_runtime_events_user_write(
    then it can be partially reconstructed, the only missing information being
    the associated tag. This function returns an event structure, except when the
    event is unknown and the event type id is EV_USER_ML_TYPE_CUSTOM. */
-CAMLexport value caml_runtime_events_user_resolve(
+CAMLexport caml_result caml_runtime_events_user_resolve(
   char* event_name, ev_user_ml_type event_type_id)
 {
   CAMLparam0();
@@ -947,7 +1003,7 @@ CAMLexport value caml_runtime_events_user_resolve(
 
     if (strncmp(String_val(cur_event_name), event_name,
                 RUNTIME_EVENTS_CUSTOM_EVENT_ID_LENGTH) == 0) {
-      CAMLreturn(event);
+      CAMLreturnT(caml_result, Result_value(event));
     }
 
     current_user_event = Field(current_user_event, 1);
@@ -960,11 +1016,10 @@ CAMLexport value caml_runtime_events_user_resolve(
     uintnat event_name_len = strnlen(event_name,
                                       RUNTIME_EVENTS_CUSTOM_EVENT_ID_LENGTH);
     ml_event_name = caml_alloc_initialized_string(event_name_len, event_name);
-    event = caml_runtime_events_user_register(ml_event_name, Val_none,
-                                              event_type);
-
-    CAMLreturn(event);
+    caml_result res = runtime_events_user_register(ml_event_name, Val_none,
+                                         event_type);
+    CAMLreturnT(caml_result, res);
   }
 
-  CAMLreturn (Val_none);
+  CAMLreturnT(caml_result, Result_value(Val_none));
 }

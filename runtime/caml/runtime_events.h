@@ -69,7 +69,9 @@ typedef enum {
     EV_FORK_CHILD,
     EV_DOMAIN_SPAWN,
     EV_DOMAIN_TERMINATE,
-    EV_PROCESS_CREATE
+    EV_PROCESS_CREATE,
+
+    EV_LIFECYCLE_LAST
 } ev_lifecycle;
 
 typedef enum {
@@ -124,6 +126,8 @@ typedef enum {
     EV_EMPTY_MINOR,
     EV_MINOR_EPHE_CLEAN,
     EV_EXPLICIT_GC_RAMP_UP,
+
+    EV_RUNTIME_PHASE_LAST
 } ev_runtime_phase;
 
 typedef enum {
@@ -167,7 +171,9 @@ typedef enum {
     EV_C_MAJOR_SLICE_SWEEP_WORK,
     EV_C_MAJOR_SLICE_MARK_WORK,
     EV_C_MAJOR_SLICE_EPHE_MARK_WORK,
-    EV_C_MAJOR_SLICE_EPHE_SWEEP_WORK
+    EV_C_MAJOR_SLICE_EPHE_SWEEP_WORK,
+
+    EV_RUNTIME_COUNTER_LAST
 } ev_runtime_counter;
 
 typedef enum {
@@ -220,7 +226,6 @@ CAMLextern int caml_runtime_events_are_active(void);
 #endif
 
 #ifdef CAML_INTERNALS
-
 /* Force alignment to prevent GCC note on i686. Standard C alignas
    isn't enough to silence the note. */
 #if defined(__GNUC__) && __has_attribute(aligned)
@@ -370,7 +375,7 @@ CAMLextern value caml_runtime_events_user_write(
 
 /* Resolve an event name to the associated event value using known registered
    events. */
-CAMLextern value caml_runtime_events_user_resolve(char* event_name,
+CAMLextern caml_result caml_runtime_events_user_resolve(char* event_name,
    ev_user_ml_type event_type);
 
 #endif /* CAML_INTERNALS */

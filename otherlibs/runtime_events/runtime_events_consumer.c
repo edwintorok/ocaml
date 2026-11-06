@@ -26,6 +26,7 @@
 #include "caml/platform.h"
 
 #include <fcntl.h>
+#include <stdalign.h>
 #include <stdatomic.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -214,10 +215,8 @@ cursor_map_ring_file(struct caml_runtime_events_cursor *cursor,
   }
   size_t ring_file_size_bytes = tmp_stat.st_size;
 
-  /* This cast is necessary for compatibility with Illumos' non-POSIX
-    mmap/munmap */
-  void *map = (void*) mmap(NULL, ring_file_size_bytes, mmap_prot,
-                           MAP_SHARED, ring_fd, 0);
+  void *map = caml_mmap(NULL, ring_file_size_bytes, mmap_prot,
+                        MAP_SHARED, ring_fd, 0);
 
   if( map == MAP_FAILED ) {
     ret = E_MAP_FAILURE;
@@ -245,7 +244,7 @@ static void cursor_unmap_ring_file(struct caml_runtime_events_cursor *cursor)
   CloseHandle(cursor->ring_file_handle);
   CloseHandle(cursor->ring_handle);
 #else
-  munmap(cursor->map, cursor->ring_file_size_bytes);
+  caml_munmap(cursor->map, cursor->ring_file_size_bytes);
 #endif
 }
 
@@ -274,6 +273,12 @@ runtime_events_error caml_runtime_events_create_cursor(
   ret = cursor_map_ring_file(cursor, ring_file);
   if (ret != E_SUCCESS) {
     goto fail_map_ring_file;
+  }
+
+  if (cursor->ring_file_size_bytes
+      < sizeof(struct runtime_events_metadata_header)) {
+    ret = E_CORRUPT_STREAM;
+    goto fail_metadata_corrupt;
   }
 
   cursor->metadata = *(struct runtime_events_metadata_header*)cursor->map;
@@ -427,13 +432,16 @@ void caml_runtime_events_free_cursor(struct caml_runtime_events_cursor *cursor){
 }
 
 static char* get_map_offset(struct caml_runtime_events_cursor *cursor,
-                            uint64_t offset, int domain_num, uint64_t len)
+                            uint64_t offset, int domain_num, uint64_t len,
+                            uint64_t align)
 {
   uint64_t limit = cursor->ring_file_size_bytes;
   if (offset >= limit)
     return NULL;
   offset += domain_num * len;
   if (offset >= limit || len > limit - offset)
+    return NULL;
+  if (offset % align)
     return NULL;
   return (char*)cursor->map + offset;
 }
@@ -480,6 +488,8 @@ caml_runtime_events_read_poll(struct caml_runtime_events_cursor *cursor,
           cursor->metadata.headers_offset +
           domain_num * cursor->metadata.ring_header_size_bytes;
     if (offset >= cursor->ring_file_size_bytes
+        || cursor->metadata.ring_header_size_bytes
+           < sizeof(struct runtime_events_buffer_header)
         || offset + cursor->metadata.ring_header_size_bytes
            > cursor->ring_file_size_bytes) {
         atomic_store(&cursor->cursor_in_poll, 0);
@@ -490,12 +500,15 @@ caml_runtime_events_read_poll(struct caml_runtime_events_cursor *cursor,
         (struct runtime_events_buffer_header *)(
           get_map_offset(cursor, cursor->metadata.headers_offset,
                          domain_num,
-                         cursor->metadata.ring_header_size_bytes)
+                         cursor->metadata.ring_header_size_bytes,
+                         alignof(struct runtime_events_buffer_header)
+                         )
         );
 
     uint64_t *ring_ptr =
       (uint64_t*)get_map_offset(cursor, cursor->metadata.data_offset,
-                                domain_num, cursor->metadata.ring_size_bytes);
+                                domain_num, cursor->metadata.ring_size_bytes,
+                                alignof(uint64_t));
     if (!runtime_events_buffer_header || !ring_ptr) {
         atomic_store(&cursor->cursor_in_poll, 0);
         return E_CORRUPT_STREAM;
@@ -527,10 +540,13 @@ caml_runtime_events_read_poll(struct caml_runtime_events_cursor *cursor,
       ring_masked_pos = cursor->current_positions[domain_num] & ring_mask;
       header = ring_ptr[ring_masked_pos];
       msg_length = RUNTIME_EVENTS_ITEM_LENGTH(header);
+      bool ring_tail_head_bad =
+        ring_tail - ring_head > cursor->metadata.ring_size_elements;
 
       if (msg_length > RUNTIME_EVENTS_MAX_MSG_LENGTH
           || ring_masked_pos + msg_length
-             > cursor->metadata.ring_size_elements) {
+             > cursor->metadata.ring_size_elements
+          || ring_tail_head_bad) {
         /* The header may have been overwritten by the writer wrapping around
            between the ring_head check above and the read of the header, in
            which case it is not a header at all. Re-check before reporting
@@ -559,6 +575,15 @@ caml_runtime_events_read_poll(struct caml_runtime_events_cursor *cursor,
 
           continue;
         }
+
+        /* ring_head may have been ahead of the position already,
+           and after a reread it could've changed again.
+           If we got here because the `tail - head` difference was too big:
+           recheck.
+         */
+        if (ring_tail_head_bad
+            && ring_tail - ring_head <= cursor->metadata.ring_size_elements)
+          continue;
 
         atomic_store(&cursor->cursor_in_poll, 0);
         return E_CORRUPT_STREAM;
@@ -605,8 +630,13 @@ caml_runtime_events_read_poll(struct caml_runtime_events_cursor *cursor,
         switch (RUNTIME_EVENTS_ITEM_TYPE(header)) {
         case EV_BEGIN:
           if (cursor->runtime_begin) {
+            unsigned phase = RUNTIME_EVENTS_ITEM_ID(header);
+            if (phase >= EV_RUNTIME_PHASE_LAST) {
+              atomic_store(&cursor->cursor_in_poll, 0);
+              return E_CORRUPT_STREAM;
+            }
             if( !cursor->runtime_begin(domain_num, callback_data, buf[1],
-                                        RUNTIME_EVENTS_ITEM_ID(header)) ) {
+                                        phase) ) {
                                           early_exit = 1;
                                           continue;
                                         }
@@ -614,8 +644,13 @@ caml_runtime_events_read_poll(struct caml_runtime_events_cursor *cursor,
           break;
         case EV_EXIT:
           if (cursor->runtime_end) {
+            unsigned phase = RUNTIME_EVENTS_ITEM_ID(header);
+            if (phase >= EV_RUNTIME_PHASE_LAST) {
+              atomic_store(&cursor->cursor_in_poll, 0);
+              return E_CORRUPT_STREAM;
+            }
             if( !cursor->runtime_end(domain_num, callback_data, buf[1],
-                                      RUNTIME_EVENTS_ITEM_ID(header)) ) {
+                                      phase) ) {
                                         early_exit = 1;
                                         continue;
                                       };
@@ -623,12 +658,13 @@ caml_runtime_events_read_poll(struct caml_runtime_events_cursor *cursor,
           break;
         case EV_COUNTER:
           if (cursor->runtime_counter) {
-            if (msg_length < 3) {
+            unsigned counter = RUNTIME_EVENTS_ITEM_ID(header);
+            if (msg_length < 3 || counter >= EV_RUNTIME_COUNTER_LAST) {
               atomic_store(&cursor->cursor_in_poll, 0);
               return E_CORRUPT_STREAM;
             }
             if( !cursor->runtime_counter(domain_num, callback_data, buf[1],
-                                        RUNTIME_EVENTS_ITEM_ID(header), buf[2]
+                                        counter, buf[2]
                                         ) ) {
                                             early_exit = 1;
                                             continue;
@@ -653,8 +689,13 @@ caml_runtime_events_read_poll(struct caml_runtime_events_cursor *cursor,
             /* EV_RING_STOP genuinely has msg_length = 2,
                buf[2] is unused in that case */
             int64_t data = msg_length > 2 ? buf[2] : 0;
+            unsigned lifecycle = RUNTIME_EVENTS_ITEM_ID(header);
+            if (lifecycle >= EV_LIFECYCLE_LAST) {
+              atomic_store(&cursor->cursor_in_poll, 0);
+              return E_CORRUPT_STREAM;
+            }
             if( !cursor->lifecycle(domain_num, callback_data, buf[1],
-                                    RUNTIME_EVENTS_ITEM_ID(header), data) ) {
+                                    lifecycle, data) ) {
                                       early_exit = 1;
                                       continue;
                                     }
@@ -743,7 +784,15 @@ caml_runtime_events_read_poll(struct caml_runtime_events_cursor *cursor,
         consumed++;
       }
 
-      cursor->current_positions[domain_num] += msg_length;
+      uint64_t current = cursor->current_positions[domain_num];
+      uint64_t next = current + msg_length;
+      if (next < current) {
+          /* ring head wraparound */
+          atomic_store(&cursor->cursor_in_poll, 0);
+          return E_CORRUPT_STREAM;
+      }
+
+      cursor->current_positions[domain_num] = next;
     } while (cursor->current_positions[domain_num] < ring_tail &&
              (max_events == 0 || consumed < max_events) && !early_exit);
 
@@ -1027,7 +1076,7 @@ static int user_events_call_callback_list(
    *corrupt_stream is also set. */
 static value caml_runtime_events_user_resolve_cached(
   value wrapper_root, uintnat event_id, char* event_name,
-  ev_user_ml_type event_type, bool* corrupt_stream)
+  ev_user_ml_type event_type, struct callbacks_exception_holder *holder)
 {
   CAMLparam1(wrapper_root);
   CAMLlocal4(event, cache_resized, cache, resolved_type);
@@ -1059,7 +1108,15 @@ static value caml_runtime_events_user_resolve_cached(
     cache_hit = true;
   } else {
     // we never encountered this ID
-    event = caml_runtime_events_user_resolve(event_name, event_type);
+    caml_result res = caml_runtime_events_user_resolve(event_name, event_type);
+    value* exc = caml_result_find_exception(&res);
+    if (exc) {
+      *holder->exception = *exc;
+      holder->corrupt_stream = 1;
+      CAMLreturn(Val_none);
+    } else {
+      event = res.data;
+    }
   }
 
   // The event is resolved by name, or by a previously cached ID, independently
@@ -1075,7 +1132,7 @@ static value caml_runtime_events_user_resolve_cached(
                           : resolved_type == Val_int(event_type);
 
     if (!type_matches) {
-      *corrupt_stream = true;
+      holder->corrupt_stream = true;
       CAMLreturn(Val_none);
     }
   }
@@ -1126,7 +1183,7 @@ static int ml_user_unit(int domain_id, void *callback_data, int64_t timestamp,
   event = caml_runtime_events_user_resolve_cached(wrapper_root, event_id,
                                                                 event_name,
                                                          EV_USER_ML_TYPE_UNIT,
-                                    &holder->corrupt_stream);
+                                                  holder);
 
   // Val_none is only returned for a corrupt stream here
   if (event == Val_none) {
@@ -1170,7 +1227,7 @@ static int ml_user_span(int domain_id, void *callback_data, int64_t timestamp,
   event = caml_runtime_events_user_resolve_cached(wrapper_root, event_id,
                                                                 event_name,
                                                           EV_USER_ML_TYPE_SPAN,
-                                    &holder->corrupt_stream);
+                                    holder);
 
   // Val_none is only returned for a corrupt stream here
   if (event == Val_none) {
@@ -1213,7 +1270,7 @@ static int ml_user_int(int domain_id, void *callback_data,
   event = caml_runtime_events_user_resolve_cached(wrapper_root, event_id,
                                                                   event_name,
                                    EV_USER_ML_TYPE_INT,
-                                    &holder->corrupt_stream);
+                                    holder);
 
   // Val_none is only returned for a corrupt stream here
   if (event == Val_none) {
@@ -1258,7 +1315,7 @@ static int ml_user_custom(int domain_id, void *callback_data, int64_t timestamp,
   event = caml_runtime_events_user_resolve_cached(wrapper_root, event_id,
                                                                 event_name,
                                     EV_USER_ML_TYPE_CUSTOM,
-                                    &holder->corrupt_stream);
+                                    holder);
 
   // the function may return Val_none if the event is unknown
   // (see caml_runtime_events_user_resolve), in which case we skip it, or if
@@ -1435,7 +1492,6 @@ CAMLprim value caml_ml_runtime_events_read_poll(value wrapper,
   wrapped_cursor = Field(wrapper, 0);
 
   uintnat events_consumed = 0;
-  int max_events = Is_some(max_events_val) ? Some_val(max_events_val) : 0;
   struct caml_runtime_events_cursor *cursor = Cursor_val(wrapped_cursor);
   runtime_events_error res;
 
@@ -1451,6 +1507,17 @@ CAMLprim value caml_ml_runtime_events_read_poll(value wrapper,
     caml_failwith("Runtime_events: cursor is not open");
   }
 
+  intnat max_events;
+  if (Is_some(max_events_val)) {
+    max_events = Long_val(Some_val(max_events_val));
+    if (max_events < 0)
+      caml_invalid_argument("Runtime_events.read_poll: negative max_option");
+    if (!max_events)
+      CAMLreturn(Val_int(0));
+  } else {
+    /* None = unlimited */
+    max_events = 0;
+  }
   res = caml_runtime_events_read_poll
                         (cursor, &holder, max_events, &events_consumed);
 

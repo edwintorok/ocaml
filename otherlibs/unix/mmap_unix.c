@@ -174,7 +174,7 @@ CAMLprim value caml_unix_map_file(value vfd, value vkind, value vlayout,
   /* Do the mmap */
   shared = Bool_val(vshared) ? MAP_SHARED : MAP_PRIVATE;
   if (array_size > 0)
-    addr = mmap(NULL, array_size + delta, PROT_READ | PROT_WRITE,
+    addr = caml_mmap(NULL, array_size + delta, PROT_READ | PROT_WRITE,
                 shared, fd, startpos - delta);
   else
     addr = NULL;                /* PR#5463 - mmap fails on empty region */
@@ -213,6 +213,6 @@ void caml_ba_unmap_file(void * addr, uintnat len)
 #if defined(_POSIX_SYNCHRONIZED_IO)
   msync(addr, len, MS_ASYNC);   /* PR#3571 */
 #endif
-  munmap(addr, len);
+  caml_munmap(addr, len);
 #endif
 }

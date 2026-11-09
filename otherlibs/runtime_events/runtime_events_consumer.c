@@ -216,7 +216,7 @@ cursor_map_ring_file(struct caml_runtime_events_cursor *cursor,
 
   /* This cast is necessary for compatibility with Illumos' non-POSIX
     mmap/munmap */
-  void *map = (void*) mmap(NULL, ring_file_size_bytes, mmap_prot,
+  void *map = (void*) caml_mmap(NULL, ring_file_size_bytes, mmap_prot,
                            MAP_SHARED, ring_fd, 0);
 
   if( map == MAP_FAILED ) {
@@ -245,7 +245,7 @@ static void cursor_unmap_ring_file(struct caml_runtime_events_cursor *cursor)
   CloseHandle(cursor->ring_file_handle);
   CloseHandle(cursor->ring_handle);
 #else
-  munmap(cursor->map, cursor->ring_file_size_bytes);
+  caml_munmap(cursor->map, cursor->ring_file_size_bytes);
 #endif
 }
 

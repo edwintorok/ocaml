@@ -469,6 +469,31 @@ void caml_init_os_params(void)
   return;
 }
 
+#if defined(__SANITIZE_ADDRESS__) && !defined(__CYGWIN__)
+
+void* caml_mmap(void* addr, size_t const len, int const prot, int const flags, int const fildes, off_t const off)
+{
+  return mmap(addr, len, prot, flags, fildes, off);
+}
+
+int caml_munmap(void* addr, size_t const len)
+{
+  return munmap(addr, len);
+}
+
+#else
+
+void* caml_mmap(void* addr, size_t len, int prot, int flags, int fildes, off_t off)
+{
+  return mmap(addr, len, prot, flags, fildes, off);
+}
+
+int caml_munmap(void* addr, size_t len)
+{
+  return munmap(addr, len);
+}
+#endif
+
 #ifndef __CYGWIN__
 
 void *caml_plat_mem_map(uintnat size, int reserve_only)

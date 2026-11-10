@@ -189,6 +189,11 @@ extern void caml_init_os_params(void);
 
 #endif /* CAML_INTERNALS */
 
+#ifndef _WIN32
+void* caml_mmap(void*, size_t, int, int, int, off_t);
+int caml_munmap(void*, size_t);
+#endif
+
 #ifdef _WIN32
 
 #ifdef __cplusplus

@@ -473,7 +473,19 @@ void caml_init_os_params(void)
 
 void* caml_mmap(void* addr, size_t const len, int const prot, int const flags, int const fildes, off_t const off)
 {
-  return mmap(addr, len, prot, flags, fildes, off);
+  if (flags & MAP_FIXED) {
+    errno = EINVAL;
+    return MAP_FAILED;
+  }
+
+  addr = mmap(addr, len, prot, flags, fildes, off);
+
+  if (MAP_FAILED != addr && (PROT_NONE != prot)) {
+    size_t poison_len = caml_mem_round_up_pages(len) - len;
+    if (poison_len)
+      ASAN_POISON_MEMORY_REGION((char*)addr + len, poison_len);
+  }
+  return addr;
 }
 
 int caml_munmap(void* addr, size_t const len)
@@ -488,7 +500,7 @@ void* caml_mmap(void* addr, size_t len, int prot, int flags, int fildes, off_t o
   return mmap(addr, len, prot, flags, fildes, off);
 }
 
-int caml_munmap(void* addr, size_t len)
+int caml_munmap(void* const addr, size_t const len)
 {
   return munmap(addr, len);
 }

@@ -190,7 +190,22 @@ extern void caml_init_os_params(void);
 #endif /* CAML_INTERNALS */
 
 #ifndef _WIN32
+/* Like mmap(2), but uses ASAN instrumentation to poison the memory between
+ * [addr+len, addr+caml_mem_round_up_pages(len)),
+ * so that out of bounds accesses are detected more reliably.
+ * ASAN works at 8-byte granularity, so OOB accesses smaller than that may not be detected.
+ *
+ * See https://github.com/google/sanitizers/wiki/AddressSanitizerAlgorithm#mapping
+ * and https://github.com/google/sanitizers/wiki/AddressSanitizerManualPoisoning
+ *
+ * This must not be used for MAP_FIXED, it'll return an error.
+ *
+ * The entire returned region should stay allocated until caml_munmap is called,
+ * it shouldn't be partially unmapped (although decommitting and committing again is OK)
+ */
 void* caml_mmap(void*, size_t, int, int, int, off_t);
+
+/* Like munmap(2), but the entire region must've been allocated with caml_mmap */
 int caml_munmap(void*, size_t);
 #endif
 

@@ -544,7 +544,7 @@ void *caml_plat_mem_map(uintnat size, int reserve_only)
   uintnat alloc_sz = size;
   void* mem;
 
-  mem = mmap(0, alloc_sz, reserve_only ? PROT_NONE : (PROT_READ | PROT_WRITE),
+  mem = caml_mmap(0, alloc_sz, reserve_only ? PROT_NONE : (PROT_READ | PROT_WRITE),
              MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
   if (mem == MAP_FAILED)
     return 0;
@@ -554,6 +554,7 @@ void *caml_plat_mem_map(uintnat size, int reserve_only)
 
 static void* map_fixed(void* mem, uintnat size, int prot)
 {
+  /* this should stay as mmap, see comment in caml_mmap */
   if (mmap(mem, size, prot, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED,
            -1, 0) == MAP_FAILED) {
     return 0;
@@ -611,7 +612,7 @@ void caml_plat_mem_decommit(void* mem, uintnat size)
 
 void caml_plat_mem_unmap(void* mem, uintnat size)
 {
-  if (munmap(mem, size) != 0)
+  if (caml_munmap(mem, size) != 0)
     CAMLassert(0);
 }
 

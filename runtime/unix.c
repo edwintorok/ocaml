@@ -471,26 +471,57 @@ void caml_init_os_params(void)
 
 #if defined(__SANITIZE_ADDRESS__) && !defined(__CYGWIN__)
 
-void* caml_mmap(void* addr, size_t const len, int const prot, int const flags, int const fildes, off_t const off)
+Caml_inline size_t round_up_guarded(size_t len)
+{
+  return caml_mem_round_up_pages(len) + 2 * caml_plat_pagesize;
+}
+
+void* caml_mmap(void* addr, size_t const len, int const prot, int flags, int const fildes, off_t const off)
 {
   if (flags & MAP_FIXED) {
     errno = EINVAL;
     return MAP_FAILED;
   }
 
-  addr = mmap(addr, len, prot, flags, fildes, off);
+  /* create the entire mapping as inacccessible pages with 1 extra page before and 1 after to trap
+   * out of bounds accesses */
+  size_t guarded_len = round_up_guarded(len);
+  void *guarded_addr;
+
+  /* addr hint can be used to try to make adjacent mappings, so keep it */
+  guarded_addr = mmap(addr, guarded_len, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+  if (MAP_FAILED == guarded_addr)
+    return addr;
+
+  /* 1 inaccessible page before the allocation */
+  addr = (char*)guarded_addr + caml_plat_pagesize;
+
+  /* if the mapping was PROT_NONE then we're done */
+  if (PROT_NONE == prot && (flags & MAP_ANONYMOUS))
+    return addr;
+
+  /* now map the requested region (or file) */
+  addr = mmap(addr, len, prot, flags | MAP_FIXED, fildes, off);
 
   if (MAP_FAILED != addr && (PROT_NONE != prot)) {
     size_t poison_len = caml_mem_round_up_pages(len) - len;
     if (poison_len)
       ASAN_POISON_MEMORY_REGION((char*)addr + len, poison_len);
   }
+
+  if (MAP_FAILED == addr) {
+    int saved_errno = errno;
+    /* avoid leaking memory on mmap failures */
+    munmap(guarded_addr, guarded_len);
+    errno = saved_errno;
+  }
+
   return addr;
 }
 
-int caml_munmap(void* addr, size_t const len)
+int caml_munmap(void* addr, size_t len)
 {
-  return munmap(addr, len);
+  return munmap((char*)addr - caml_plat_pagesize, round_up_guarded(len));
 }
 
 #else
@@ -500,7 +531,7 @@ void* caml_mmap(void* addr, size_t len, int prot, int flags, int fildes, off_t o
   return mmap(addr, len, prot, flags, fildes, off);
 }
 
-int caml_munmap(void* const addr, size_t const len)
+int caml_munmap(void* addr, size_t len)
 {
   return munmap(addr, len);
 }

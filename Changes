@@ -224,7 +224,8 @@ Working version
   (Sora Morimoto, review by Olivier Nicole)
 
 - #NNNN: `Runtime_events.read_poll` should let escaping exceptions
-  wedge/leak the cursor.
+  wedge/leak the cursor, and invalid event names should not use up
+  an event id.
   (Edwin Török, review by)
 
 

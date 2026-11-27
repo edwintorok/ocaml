@@ -152,7 +152,8 @@
         [0L; size * 3/4 |> Int64.of_int; size * 2 |> Int64.of_int;
          65L; 73L;
          size - 8 |> Int64.of_int;
-         Int64.max_int; Int64.min_int; Int64.(shift_right_logical max_int 1)
+         Int64.max_int; Int64.min_int; Int64.(shift_right_logical max_int 1);
+         -2L
         ]
       in
       let orig_head, orig_tail = read_header () in
@@ -162,6 +163,7 @@
         ;orig_head, Int64.add orig_tail value
         ;0L, value
         ;value, orig_tail
+        ;value, Int64.add value 1L
         ;Int64.add orig_head value, Int64.add orig_tail value
         ] |> List.iter @@ fun (head, tail) ->
            write_header head tail;

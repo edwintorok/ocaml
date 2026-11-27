@@ -228,6 +228,10 @@ Working version
   (Edwin Török, report by Sam Moelius, suggestions by Tim McGilchrist,
    review by)
 
+- #NNNN: `Runtime_events.read_poll` avoid hanging on malformed ring with
+  excessive ring tail - head difference, or ring position wraparound.
+  (Edwin Török, report by Sam Moelius and KC Sivaramakrishnan, review by)
+
 OCaml 5.6.0
 -----------
 
